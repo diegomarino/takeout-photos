@@ -22,6 +22,7 @@ Design decisions, module structure, and extension points for takeout-photos.
 The modular refactoring transformed a monolithic script into a clean, modular package:
 
 **Benefits:**
+
 - **Testability**: Each module independently testable (231 tests)
 - **Maintainability**: Clear separation of concerns
 - **Reusability**: Use as library or CLI
@@ -41,6 +42,7 @@ def step_X(config: Config, db: PipelineDB, ..., log: logging.Logger) -> None:
 ```
 
 **Benefits:**
+
 - Resumable after interruption
 - No state corruption from crashes
 - Parallel processing safe
@@ -61,6 +63,7 @@ subprocess.run(["exiftool", "-@", args_file])
 ```
 
 **Performance Impact:**
+
 - Before: 200K files × 100ms/process = 5.5 hours in process creation
 - After: 1 batch process = seconds
 
@@ -79,6 +82,7 @@ if file.content_hash is not None:
 ```
 
 **Benefits:**
+
 - Resume from any interruption
 - Retry failed operations
 - No duplicate work
@@ -160,9 +164,9 @@ flowchart TD
     CLI --> Config
     CLI --> Utils[utils.dependencies]
 
-    style Pipeline fill:#e3f2fd
-    style Stages fill:#fff3e0
-    style CLI fill:#f3e5f5
+    style Pipeline fill:#e3f2fd,color:#333333
+    style Stages fill:#fff3e0,color:#333333
+    style CLI fill:#f3e5f5,color:#333333
 ```
 
 **Design Note:** Stages depend on infrastructure (config, database) but not on each other. This enables independent testing and parallel development.
@@ -275,6 +279,7 @@ CREATE INDEX idx_organized_zip ON organized_files(source_zip);
 ### State Transitions
 
 **ZIP status flow:**
+
 ```
 pending → extracting → extracted → processing → organized
                                       ↓
@@ -282,6 +287,7 @@ pending → extracting → extracted → processing → organized
 ```
 
 **File status flow:**
+
 ```
 pending → meta_applied → organized (or error)
 ```
@@ -295,6 +301,7 @@ pending → meta_applied → organized (or error)
 **Decision:** Use SQLite for state management instead of files or in-memory structures.
 
 **Rationale:**
+
 - **Atomicity**: Transactions prevent partial updates
 - **Queryability**: SQL queries for complex operations (deduplication, QC)
 - **Persistence**: State survives crashes and restarts
@@ -302,6 +309,7 @@ pending → meta_applied → organized (or error)
 - **Simplicity**: No external database server required
 
 **Alternative Considered:** JSON files
+
 - ❌ No atomicity (corruption risk)
 - ❌ No efficient queries (must load entire file)
 - ❌ No concurrency support
@@ -312,6 +320,7 @@ pending → meta_applied → organized (or error)
 
 **Rationale:**
 Google Takeout exports contain duplicates:
+
 - Same photo in multiple albums
 - Re-exported photos in incremental exports
 - Edited versions alongside originals
@@ -319,6 +328,7 @@ Google Takeout exports contain duplicates:
 Per-ZIP deduplication would miss these cases.
 
 **Trade-off:**
+
 - ✅ Finds all duplicates (across runs via `organized_files`)
 - ⚠️ Requires a global lookup during organization
 - ⚠️ Slightly more complex logic
@@ -329,10 +339,12 @@ Per-ZIP deduplication would miss these cases.
 
 **Rationale:**
 Process creation overhead dominates for small operations:
+
 - **Per-file**: 200K files × 100ms = 5.5 hours just in process overhead
 - **Batch**: 1 process = seconds
 
 **Implementation:**
+
 ```python
 # Create args file
 with open("args.txt", "w") as f:
@@ -350,12 +362,14 @@ subprocess.run(["exiftool", "-@", "args.txt"])
 
 **Rationale:**
 **Before (v1):**
+
 ```python
 # Search filesystem for each media file
 json_path = find_json_for_media(media_file)  # Slow: filesystem traversal
 ```
 
 **After (optimized):**
+
 ```python
 # Register JSON files once
 db.register_json_file(json_path)  # Indexed by base_media_name
@@ -365,6 +379,7 @@ json_path = db.find_json_for_media_db(media_file)  # Fast: indexed query
 ```
 
 **Performance:**
+
 - Before: O(N×M) filesystem searches (N media files × M JSON files)
 - After: O(N) database lookups with index
 
@@ -373,6 +388,7 @@ json_path = db.find_json_for_media_db(media_file)  # Fast: indexed query
 **Decision:** Transform monolithic script into installable package.
 
 **Rationale:**
+
 - **Distribution**: `pip install takeout-photos` (not copy script)
 - **Library API**: Use as Python library
 - **Testing**: Comprehensive test suite (231 tests)
@@ -380,6 +396,7 @@ json_path = db.find_json_for_media_db(media_file)  # Fast: indexed query
 - **Professionalism**: Modern Python packaging standards
 
 **Trade-offs:**
+
 - ✅ Better code quality
 - ✅ More flexible usage
 - ⚠️ More complex project structure
@@ -611,6 +628,7 @@ with open(filepath, "rb") as f:
 ### Test Types
 
 **Unit Tests (fast, isolated):**
+
 ```python
 def test_parse_json():
     """Test JSON parsing."""
@@ -619,6 +637,7 @@ def test_parse_json():
 ```
 
 **Integration Tests (multi-component):**
+
 ```python
 def test_full_pipeline(tmp_path):
     """Test complete pipeline."""
@@ -631,18 +650,21 @@ def test_full_pipeline(tmp_path):
 ### Key Test Cases
 
 **JSON Finder:**
+
 - All 18 pattern variants
 - 46-character truncation
 - Numbered suffixes: (1), (2)
 - Global search across ZIPs
 
 **Database:**
+
 - Schema creation
 - CRUD operations
 - JSON file lookup performance
 - Deduplication queries
 
 **Pipeline:**
+
 - End-to-end with sample ZIP
 - Resume from checkpoint
 - Error handling

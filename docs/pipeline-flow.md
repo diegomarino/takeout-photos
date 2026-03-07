@@ -37,14 +37,14 @@ flowchart TD
     PHASE4 --> |organized_dir/| PHASE5[Phase 5: Quality Control]
     PHASE5 --> |logs/qc_*.txt| END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style PHASE1 fill:#e3f2fd
-    style PHASE1B fill:#e3f2fd
-    style PHASE2 fill:#fff3e0
-    style PHASE3 fill:#fff3e0
-    style PHASE4 fill:#f3e5f5
-    style PHASE5 fill:#e0f2f1
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style PHASE1 fill:#e3f2fd,color:#333333
+    style PHASE1B fill:#e3f2fd,color:#333333
+    style PHASE2 fill:#fff3e0,color:#333333
+    style PHASE3 fill:#fff3e0,color:#333333
+    style PHASE4 fill:#f3e5f5,color:#333333
+    style PHASE5 fill:#e0f2f1,color:#333333
 ```
 
 **Processing Model:**
@@ -80,13 +80,13 @@ flowchart TD
     UPDATE2 --> COMMIT[Commit to DB]
     COMMIT --> END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style EXTRACT fill:#bbdefb
-    style REGISTER_JSON fill:#c5e1a5
-    style LOOP_START fill:#fff9c4
-    style CHECK_EXT fill:#fff9c4
-    style HAS_JSON fill:#fff9c4
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style EXTRACT fill:#bbdefb,color:#333333
+    style REGISTER_JSON fill:#c5e1a5,color:#333333
+    style LOOP_START fill:#fff9c4,color:#333333
+    style CHECK_EXT fill:#fff9c4,color:#333333
+    style HAS_JSON fill:#fff9c4,color:#333333
 ```
 
 **Key Operations:**
@@ -137,12 +137,12 @@ flowchart TD
     LOOP --> |No| COMMIT[Commit changes]
     COMMIT --> END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style POOL fill:#b3e5fc
-    style PARALLEL fill:#c5e1a5
-    style RENAME fill:#fff59d
-    style CHECK fill:#fff9c4
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style POOL fill:#b3e5fc,color:#333333
+    style PARALLEL fill:#c5e1a5,color:#333333
+    style RENAME fill:#fff59d,color:#333333
+    style CHECK fill:#fff9c4,color:#333333
 ```
 
 **Key Operations:**
@@ -195,14 +195,14 @@ flowchart TD
     STAY --> END
     COMMIT --> END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style PARSE fill:#ffe0b2
-    style RUN fill:#c5cae9
-    style CHECK fill:#fff9c4
-    style HAS_TS fill:#fff9c4
-    style HAS_GPS fill:#fff9c4
-    style STAY fill:#ffccbc
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style PARSE fill:#ffe0b2,color:#333333
+    style RUN fill:#c5cae9,color:#333333
+    style CHECK fill:#fff9c4,color:#333333
+    style HAS_TS fill:#fff9c4,color:#333333
+    style HAS_GPS fill:#fff9c4,color:#333333
+    style STAY fill:#ffccbc,color:#333333
 ```
 
 **Key Operations:**
@@ -262,12 +262,12 @@ flowchart TD
     WAIT --> |Yes| COMMIT[Commit to DB]
     COMMIT --> END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style CHECK fill:#fff9c4
-    style POOL fill:#b3e5fc
-    style PARALLEL fill:#c5e1a5
-    style WAIT fill:#fff9c4
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style CHECK fill:#fff9c4,color:#333333
+    style POOL fill:#b3e5fc,color:#333333
+    style PARALLEL fill:#c5e1a5,color:#333333
+    style WAIT fill:#fff9c4,color:#333333
 ```
 
 **Key Operations:**
@@ -319,14 +319,14 @@ flowchart TD
     FINALIZE --> LOOP
     LOOP --> |No| END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style CHECK_DUP fill:#fff9c4
-    style RECOVER fill:#fff9c4
-    style CHECK_MOVED fill:#fff9c4
-    style STAGE fill:#ffeb3b
-    style MOVE fill:#81c784
-    style REVERT fill:#ffccbc
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style CHECK_DUP fill:#fff9c4,color:#333333
+    style RECOVER fill:#fff9c4,color:#333333
+    style CHECK_MOVED fill:#fff9c4,color:#333333
+    style STAGE fill:#ffeb3b,color:#333333
+    style MOVE fill:#81c784,color:#333333
+    style REVERT fill:#ffccbc,color:#333333
 ```
 
 **Key Operations:**
@@ -388,10 +388,10 @@ flowchart TD
     WRITE --> LOG[Log summary to console]
     LOG --> END([Complete])
 
-    style START fill:#e1f5e1
-    style END fill:#ffe1e1
-    style BUILD fill:#ffab91
-    style WRITE fill:#a5d6a7
+    style START fill:#e1f5e1,color:#333333
+    style END fill:#ffe1e1,color:#333333
+    style BUILD fill:#ffab91,color:#333333
+    style WRITE fill:#a5d6a7,color:#333333
 ```
 
 **Key Operations:**
@@ -520,10 +520,10 @@ flowchart TD
     SUCCESS --> |Yes| COMPLETE([Complete])
     SUCCESS --> |No| INVESTIGATE[Investigate error\nCheck logs/]
 
-    style FAIL fill:#ffcdd2
-    style COMPLETE fill:#c8e6c9
-    style CHECK fill:#fff9c4
-    style SUCCESS fill:#fff9c4
+    style FAIL fill:#ffcdd2,color:#333333
+    style COMPLETE fill:#c8e6c9,color:#333333
+    style CHECK fill:#fff9c4,color:#333333
+    style SUCCESS fill:#fff9c4,color:#333333
 ```
 
 **Recovery Commands:**
@@ -567,16 +567,16 @@ flowchart TD
     ERR --> REPORT[Log recovery summary]
     REPORT --> CONTINUE([Continue Pipeline])
 
-    style START fill:#e1f5e1
-    style CONTINUE fill:#c8e6c9
-    style RESET_ZIPS fill:#fff9c4
-    style STAGED fill:#fff9c4
-    style CHECK_MOVED fill:#fff9c4
-    style ORPHAN fill:#fff9c4
-    style MISSING fill:#fff9c4
-    style COMP fill:#81c784
-    style REV fill:#ffccbc
-    style ERR fill:#ffccbc
+    style START fill:#e1f5e1,color:#333333
+    style CONTINUE fill:#c8e6c9,color:#333333
+    style RESET_ZIPS fill:#fff9c4,color:#333333
+    style STAGED fill:#fff9c4,color:#333333
+    style CHECK_MOVED fill:#fff9c4,color:#333333
+    style ORPHAN fill:#fff9c4,color:#333333
+    style MISSING fill:#fff9c4,color:#333333
+    style COMP fill:#81c784,color:#333333
+    style REV fill:#ffccbc,color:#333333
+    style ERR fill:#ffccbc,color:#333333
 ```
 
 **Recovery Operations:**

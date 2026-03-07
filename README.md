@@ -326,44 +326,16 @@ ZIPs:
 
 ## ⚙️ Processing Pipeline
 
-The pipeline processes Google Takeout exports through 6 stages:
+The pipeline processes Google Takeout exports through 8 stages:
 
-### Phase 1: Extract ZIPs
-
-- Decompress ZIPs to `extracted/`
-- Register JSON metadata files for fast lookup
-- Register media files with associated JSON
-- Optionally delete ZIPs after successful extraction (with `--delete-zips-after-extract`)
-
-### Phase 1b: Validate File Formats
-
-- Detect real file type using exiftool
-- Correct mismatched extensions (e.g., `.HEIC` → `.jpg`)
-- Preserve existing EXIF metadata
-
-### Phase 2: Apply Metadata
-
-- Parse JSON: `photoTakenTime`, `geoData`
-- Write EXIF tags using batch exiftool operations
-- Always prioritize JSON dates over embedded EXIF
-
-### Phase 3: Compute Hashes
-
-- Calculate content hashes (xxhash or SHA256)
-- Parallel processing using all CPU cores
-- Enables content-based deduplication
-
-### Phase 4: Organize by Date (inline deduplication)
-
-- Read DateTimeOriginal from EXIF
-- Move to `organized_media/YYYY/MM/` (or `YYYY/`)
-- Files without dates → `no_date/`
-
-### Phase 5: Quality Control
-
-- Generate QC report with suspicious dates
-- Statistics by year
-- Report saved to `logs/qc_*.txt`
+1. **Extract** — decompress all Takeout ZIPs into a single working directory
+2. **Validate** — fix mismatched extensions (e.g. `.HEIC` files that are actually JPEG)
+3. **Metadata** — parse Google's JSON sidecars and write the real date + GPS into EXIF
+4. **Hash** — fingerprint every file with content hashing (xxhash/SHA256)
+5. **Stage** — move fingerprinted files to a staging area
+6. **Dedupe** — detect and isolate duplicates across all ZIPs
+7. **Organize** — sort into `organized_media/YYYY/MM/` based on `DateTimeOriginal`
+8. **QC** — flag suspicious dates and generate a summary report to `logs/qc_*.txt`
 
 [→ Detailed Pipeline Flow Diagrams](docs/pipeline-flow.md)
 
