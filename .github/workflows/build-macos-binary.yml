@@ -41,8 +41,12 @@ jobs:
 
       - name: Package binary
         run: |
-          # Extract version from tag (e.g., v1.0.1 -> 1.0.1)
-          VERSION=${GITHUB_REF#refs/tags/v}
+          # Extract version from tag (e.g., v1.0.1 -> 1.0.1), fallback for workflow_dispatch
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=dev
+          fi
           echo "Version: $VERSION"
 
           cd dist
