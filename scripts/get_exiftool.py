@@ -15,8 +15,18 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
-# ExifTool download URL (Perl distribution from SourceForge)
-EXIFTOOL_VERSION = "13.47"
+
+# ExifTool version — fetched dynamically from exiftool.org
+def _get_latest_version() -> str:
+    try:
+        with urllib.request.urlopen("https://exiftool.org/ver.txt", timeout=10) as r:
+            version: str = r.read().decode().strip()
+            return version
+    except Exception:
+        return "13.52"  # fallback if network unavailable
+
+
+EXIFTOOL_VERSION = _get_latest_version()
 EXIFTOOL_URL = (
     f"https://sourceforge.net/projects/exiftool/files/"
     f"Image-ExifTool-{EXIFTOOL_VERSION}.tar.gz/download"
