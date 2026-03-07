@@ -39,7 +39,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to GitHub Releases
-        uses: python-semantic-release/upload-to-gh-release@v3.0.3
+        uses: python-semantic-release/upload-to-gh-release@v9.8.9
         if: steps.release.outputs.released == 'true'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
