@@ -303,9 +303,9 @@ class TestStepApplyMetadata:
             step_apply_metadata(config, db, "test.zip", logger)
 
             # Check that file was updated with meta_applied status and exif_datetime
-            # Timestamp 1621234567 = 2021-05-17 08:56:07 UTC
+            # Timestamp 1621234567 = 2021-05-17 06:56:07 UTC
             db.update_file.assert_called_with(
-                123, status="meta_applied", exif_datetime="2021:05:17 08:56:07"
+                123, status="meta_applied", exif_datetime="2021:05:17 06:56:07"
             )
 
     def test_apply_metadata_batch_processing(self, config, db, logger, tmp_path):

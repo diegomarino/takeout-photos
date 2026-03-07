@@ -13,7 +13,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -170,11 +170,11 @@ def ts_to_exif_date(timestamp: int) -> str:
         '2021:01:01 00:00:00'
 
     Note:
-        Uses local timezone of the system. Google Takeout JSON metadata
-        contains timestamps in UTC, but EXIF dates are typically stored
-        without timezone information.
+        Uses UTC. Google Takeout JSON metadata contains timestamps in UTC,
+        and EXIF dates have no timezone field, so UTC ensures consistent
+        output regardless of the system timezone.
     """
-    dt = datetime.fromtimestamp(timestamp)
+    dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
     return dt.strftime("%Y:%m:%d %H:%M:%S")
 
 

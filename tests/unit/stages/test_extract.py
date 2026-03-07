@@ -373,10 +373,10 @@ class TestStepExtractZip:
         # Check common attack targets don't exist
         assert not (config.extracted_dir / ".." / ".." / "etc" / "passwd").exists()
         assert not (config.extracted_dir / ".." / "escape.txt").exists()
-        assert (
-            not Path("/etc/shadow").exists()
-            or Path("/etc/shadow").read_bytes() != b"malicious content"
-        )  # noqa: E501
+        try:
+            assert Path("/etc/shadow").read_bytes() != b"malicious content"
+        except (FileNotFoundError, PermissionError):
+            pass  # Cannot read /etc/shadow — it was not overwritten by extraction
 
         # Verify legitimate file WAS extracted
         legit_file = config.extracted_dir / "legit.txt"
