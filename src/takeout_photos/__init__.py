@@ -17,7 +17,7 @@ from takeout_photos.core.config import Config
 from takeout_photos.core.database import PipelineDB
 from takeout_photos.core.pipeline import Pipeline
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 __all__ = [
     "__version__",
