@@ -15,6 +15,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: write
 
     steps:
       - uses: actions/checkout@v4
@@ -45,3 +46,12 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
+
+      - name: Trigger macOS binary build
+        if: steps.release.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build-macos-binary.yml \
+            --ref "${{ steps.release.outputs.tag }}" \
+            --repo ${{ github.repository }}
