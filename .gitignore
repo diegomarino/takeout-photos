@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Testing
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Git worktrees
+.worktrees/
+
+# Project specific - work directories
+google_takeout_work/
+test_workdir/
+*/extracted/
+*/staging/
+*/duplicates/
+*/organized_media/
+*/zips/
+
+# Database and logs
+*.db
+*.db-journal
+*.log
+logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Internal development docs (not for public repo)
+docs/plans/archive/
+
+# Temporary files
+*.tmp
+*.temp
+.*.swp
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+*.7z

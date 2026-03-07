@@ -1,0 +1,28 @@
+# Code Owners for takeout-photos
+#
+# These owners will be requested for review when someone opens a pull request
+# that modifies code in the specified paths.
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @diegomarino
+
+# Core pipeline and database logic
+/src/takeout_photos/core/ @diegomarino
+
+# Stage implementations
+/src/takeout_photos/stages/ @diegomarino
+
+# CLI interface
+/src/takeout_photos/cli/ @diegomarino
+
+# Documentation
+/docs/ @diegomarino
+*.md @diegomarino
+
+# CI/CD workflows
+/.github/workflows/ @diegomarino
+
+# Build and configuration
+/pyproject.toml @diegomarino

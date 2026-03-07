@@ -1,0 +1,74 @@
+name: Question
+description: Ask a question about using takeout-photos
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your question! Please provide as much detail as possible to help us assist you.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: How do I...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context or what you've tried so far.
+      placeholder: |
+        I'm trying to process a Takeout archive that contains...
+        I've already tried...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation
+        - Usage / How-to
+        - Configuration
+        - Performance
+        - Error / Troubleshooting
+        - Best Practices
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of takeout-photos are you using?
+      placeholder: "1.0.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples
+      description: Provide any examples, command outputs, or screenshots that might help.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please verify the following before submitting
+      options:
+        - label: I have read the documentation
+          required: false
+        - label: I have searched existing issues for similar questions
+          required: true

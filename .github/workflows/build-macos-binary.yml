@@ -1,0 +1,92 @@
+name: Build macOS Binary
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:  # Manual trigger for testing
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build-macos:
+    name: Build macOS ARM64 Binary
+    runs-on: macos-14  # Apple Silicon runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[build]"
+
+      - name: Download exiftool
+        run: python scripts/get_exiftool.py
+
+      - name: Build with PyInstaller
+        run: pyinstaller pyinstaller.spec
+
+      - name: Validate binary
+        run: |
+          chmod +x scripts/validate_binary.sh
+          ./scripts/validate_binary.sh dist/takeout-photos
+
+      - name: Package binary
+        run: |
+          # Extract version from tag (e.g., v1.0.1 -> 1.0.1)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Version: $VERSION"
+
+          cd dist
+          tar -czf takeout-photos-${VERSION}-macos-arm64.tar.gz takeout-photos
+          cd ..
+          mv dist/takeout-photos-${VERSION}-macos-arm64.tar.gz .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-binary
+          path: takeout-photos-*-macos-arm64.tar.gz
+          retention-days: 90
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: takeout-photos-*-macos-arm64.tar.gz
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute SHA256 and update Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          ARCHIVE="takeout-photos-${VERSION}-macos-arm64.tar.gz"
+          SHA256=$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')
+
+          echo "Version: $VERSION"
+          echo "SHA256:  $SHA256"
+
+          curl -s -X POST \
+            -H "Authorization: Bearer $TAP_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/diegomarino/homebrew-tap/dispatches \
+            -d "{
+              \"event_type\": \"update-takeout-photos\",
+              \"client_payload\": {
+                \"version\": \"${VERSION}\",
+                \"sha256\": \"${SHA256}\"
+              }
+            }"
