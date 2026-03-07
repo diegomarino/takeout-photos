@@ -24,6 +24,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install exiftool
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update -q && sudo apt-get install -y libimage-exiftool-perl
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install exiftool
+          fi
+        shell: bash
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
