@@ -327,19 +327,6 @@ class TestCliMain:
         log_files = list((workdir / "logs").glob("*_run.log"))
         assert len(log_files) >= 1
 
-    def test_main_layout_option(self, tmp_path):
-        """Test --layout option."""
-        workdir = tmp_path / "work"
-
-        with patch(
-            "sys.argv",
-            ["takeout-photos", "--workdir", str(workdir), "--layout", "yyyy", "process"],
-        ):
-            with patch("takeout_photos.core.pipeline.check_dependencies", return_value=True):
-                main()
-
-        assert (workdir / "pipeline.db").exists()
-
     def test_main_dry_run_option(self, tmp_path):
         """Test --dry-run option."""
         workdir = tmp_path / "work"

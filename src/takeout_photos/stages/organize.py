@@ -28,7 +28,7 @@ def step_organize_files_from_zip(
     For each file:
     - Check if hash exists in organized_files (duplicate)
     - If duplicate: move to duplicates/ (preserving extracted/ relative path)
-    - If unique: move to organized_dir/YYYY/MM/, insert into organized_files
+    - If unique: move to organized_dir/YYYY/YYYY_MM/, insert into organized_files
 
     Args:
         config: Pipeline configuration
@@ -255,7 +255,7 @@ def _compute_organized_dest(
         ...     Path("photo.jpg"), config, "2020:05:15 14:30:22"
         ... )
         >>> print(dest_dir)
-        /work/organized/2020/05
+        /work/organized/2020/2020_05
         >>> print(filename)
         2020-05-15_photo.jpg  # If dated_filenames=True
 
@@ -272,9 +272,9 @@ def _compute_organized_dest(
     date_str = exif_datetime
 
     if date_str:
-        # Parse YYYY:MM:DD to path
+        # Parse YYYY:MM:DD to path — use YYYY/YYYY_MM for self-describing folder names
         year, month = date_str[:4], date_str[5:7]
-        dest_dir = config.organized_dir / year / month
+        dest_dir = config.organized_dir / year / f"{year}_{month}"
     else:
         # No date - use no_date/
         dest_dir = config.organized_dir / "no_date"
@@ -300,7 +300,7 @@ def _move_to_organized(
     source_path: Path, config: Config, db: PipelineDB, exif_datetime: str | None
 ) -> Path:
     """
-    Move file to organized_dir/YYYY/MM/ based on EXIF date.
+    Move file to organized_dir/YYYY/YYYY_MM/ based on EXIF date.
 
     Preserves original filename.
 
@@ -316,6 +316,7 @@ def _move_to_organized(
     Note:
         Files without EXIF dates go to organized_dir/no_date/
         Filename conflicts are resolved by appending (1), (2), etc.
+        Folder structure: YYYY/YYYY_MM/ for self-describing folder names.
     """
     # Type narrowing
     assert config.organized_dir is not None

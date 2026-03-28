@@ -366,7 +366,9 @@ class TestDatedFilenamesFeature:
                 # Verify files were organized with date prefixes
                 # File with JSON metadata should have date prefix from photo_taken_ts
                 # 1653496222 = 2022-05-25 16:50:22 UTC
-                dated_file = config.organized_dir / "2022" / "05" / "2022-05-25_photo_with_date.jpg"
+                dated_file = (
+                    config.organized_dir / "2022" / "2022_05" / "2022-05-25_photo_with_date.jpg"
+                )
                 assert dated_file.exists(), f"Expected {dated_file} to exist"
 
                 # File without JSON should be in no_date with NO-DATE prefix
@@ -403,11 +405,11 @@ class TestDatedFilenamesFeature:
                 # Verify file was organized without date prefix
                 # File should be in organized/2022/05/photo.jpg (NO PREFIX)
                 # 1653496222 = 2022-05-25 16:50:22 UTC
-                original_file = config.organized_dir / "2022" / "05" / "photo.jpg"
+                original_file = config.organized_dir / "2022" / "2022_05" / "photo.jpg"
                 assert original_file.exists(), f"Expected {original_file} to exist"
 
                 # Verify no date-prefixed file exists
-                dated_file = config.organized_dir / "2022" / "05" / "2022-05-25_photo.jpg"
+                dated_file = config.organized_dir / "2022" / "2022_05" / "2022-05-25_photo.jpg"
                 assert not dated_file.exists(), f"Unexpected {dated_file} should not exist"
 
 

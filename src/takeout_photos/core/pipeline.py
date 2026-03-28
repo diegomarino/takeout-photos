@@ -79,7 +79,7 @@ class Pipeline:
             - Validate file formats and correct extensions
             - Apply JSON metadata to EXIF tags (JSONs all available!)
             - Compute content hashes for deduplication
-            - Organize by EXIF date → organized_dir/YYYY/MM/
+            - Organize by EXIF date → organized_dir/YYYY/YYYY_MM/
             - Inline deduplication → duplicates/
             - Cleanup extracted/ at end (unless --keep-extracted-files)
 

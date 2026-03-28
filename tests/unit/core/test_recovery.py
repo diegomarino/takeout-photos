@@ -112,7 +112,7 @@ def test_detect_orphaned_organized(tmp_path):
     log = logging.getLogger(__name__)
 
     # Create organized files without DB entries
-    organized_dir = config.organized_dir / "2020" / "05"
+    organized_dir = config.organized_dir / "2020" / "2020_05"
     organized_dir.mkdir(parents=True)
 
     orphan1 = organized_dir / "orphan1.jpg"
@@ -140,7 +140,7 @@ def test_orphaned_organized_with_existing_entries(tmp_path):
     log = logging.getLogger(__name__)
 
     # Create organized file
-    organized_dir = config.organized_dir / "2020" / "05"
+    organized_dir = config.organized_dir / "2020" / "2020_05"
     organized_dir.mkdir(parents=True)
 
     file1 = organized_dir / "file1.jpg"
@@ -150,7 +150,7 @@ def test_orphaned_organized_with_existing_entries(tmp_path):
     db.insert_organized_file(
         hash="hash1",
         original_name="file1.jpg",
-        final_path="2020/05/file1.jpg",
+        final_path="2020/2020_05/file1.jpg",
         source_zip="test.zip",
         file_size=5,
     )

@@ -23,7 +23,7 @@ class TestStepOrganizeFilesFromZip:
         assert stats["errors"] == 0
 
     def test_organize_unique_file_to_organized_dir(self, config, real_db, logger, tmp_path):
-        """Should organize unique file to organized_dir/YYYY/MM/."""
+        """Should organize unique file to organized_dir/YYYY/YYYY_MM/."""
         # Set up extracted directory with a file
         extracted_zip = config.extracted_dir / "test-zip"
         extracted_zip.mkdir(parents=True)
@@ -126,7 +126,7 @@ class TestComputeOrganizedDest:
         dest_dir, filename = _compute_organized_dest(test_file, config, exif_datetime)
 
         # Should organize to 2020/05 directory
-        assert dest_dir == config.organized_dir / "2020" / "05"
+        assert dest_dir == config.organized_dir / "2020" / "2020_05"
         assert filename == "test.jpg"
 
     def test_compute_organized_dest_no_date(self, config, tmp_path, monkeypatch):
@@ -152,7 +152,7 @@ class TestComputeOrganizedDest:
         from takeout_photos.stages.organize import _compute_organized_dest
 
         # Create destination directory with existing file
-        dest_dir = config.organized_dir / "2020" / "05"
+        dest_dir = config.organized_dir / "2020" / "2020_05"
         dest_dir.mkdir(parents=True, exist_ok=True)
         (dest_dir / "test.jpg").write_bytes(b"existing")
 
@@ -174,7 +174,7 @@ class TestComputeOrganizedDest:
         from takeout_photos.stages.organize import _compute_organized_dest
 
         # Create destination directory with multiple existing files
-        dest_dir = config.organized_dir / "2020" / "05"
+        dest_dir = config.organized_dir / "2020" / "2020_05"
         dest_dir.mkdir(parents=True, exist_ok=True)
         (dest_dir / "test.jpg").write_bytes(b"existing 1")
         (dest_dir / "test(1).jpg").write_bytes(b"existing 2")
@@ -207,7 +207,7 @@ class TestComputeOrganizedDest:
         exif_datetime = "2023:05:15 14:30:22"
         dest_dir, filename = _compute_organized_dest(source, config, exif_datetime)
 
-        assert dest_dir == tmp_path / "organized" / "2023" / "05"
+        assert dest_dir == tmp_path / "organized" / "2023" / "2023_05"
         assert filename == "2023-05-15_IMG_1234.jpg"
 
     def test_compute_dest_with_no_date_prefix(self, tmp_path):
@@ -243,7 +243,7 @@ class TestComputeOrganizedDest:
         exif_datetime = "2023:05:15 14:30:22"
         dest_dir, filename = _compute_organized_dest(source, config, exif_datetime)
 
-        assert dest_dir == tmp_path / "organized" / "2023" / "05"
+        assert dest_dir == tmp_path / "organized" / "2023" / "2023_05"
         assert filename == "IMG_1234.jpg"  # Original name preserved
 
     def test_compute_dest_collision_with_dated_filenames(self, tmp_path):
@@ -253,7 +253,7 @@ class TestComputeOrganizedDest:
 
         config = Config(workdir=tmp_path, dated_filenames=True)
         config.organized_dir = tmp_path / "organized"
-        organized_dir = config.organized_dir / "2023" / "05"
+        organized_dir = config.organized_dir / "2023" / "2023_05"
         organized_dir.mkdir(parents=True)
 
         # Create existing file with date prefix

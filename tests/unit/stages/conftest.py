@@ -18,7 +18,6 @@ def config(tmp_path):
     return Config(
         workdir=str(workdir),
         workers=2,
-        organize_layout="yyyy_mm",
         dry_run=False,
     )
 

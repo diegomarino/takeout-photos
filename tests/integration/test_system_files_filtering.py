@@ -44,7 +44,7 @@ def test_full_pipeline_filters_system_files(tmp_path):
         zf.writestr("__MACOSX/Takeout/photo.jpg", b"macos zip metadata")
 
     # Configure and run pipeline
-    config = Config(workdir=workdir, organize_layout="yyyy")
+    config = Config(workdir=workdir)
     db = PipelineDB(config.db_path)
 
     with Pipeline(config) as pipeline:

@@ -221,14 +221,14 @@ class TestFileOperations:
         file_id = files[0]["id"]
 
         db.update_file(
-            file_id, status="organized", content_hash="abc123", final_path="2023/05/photo.jpg"
+            file_id, status="organized", content_hash="abc123", final_path="2023/2023_05/photo.jpg"
         )
         db.commit()
 
         files = db.get_files_for_zip("takeout-001.zip")
         assert files[0]["status"] == "organized"
         assert files[0]["content_hash"] == "abc123"
-        assert files[0]["final_path"] == "2023/05/photo.jpg"
+        assert files[0]["final_path"] == "2023/2023_05/photo.jpg"
 
 
 class TestJSONFileOperations:
