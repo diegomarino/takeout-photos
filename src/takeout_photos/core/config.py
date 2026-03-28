@@ -35,7 +35,6 @@ class Config:
         workers: Number of parallel workers for CPU-bound tasks (default: 4)
         batch_size: Batch size for bulk operations (default: 500)
         checkpoint_interval: Commit database every N files/hashes (default: 100)
-        organize_layout: Directory layout 'yyyy_mm' or 'yyyy' (default: yyyy_mm)
         dated_filenames: Prefix filenames with date YYYY-MM-DD_ (default: False)
         qc_min_year: Minimum valid year for QC checks (default: 1995)
         qc_max_year: Maximum valid year for QC checks (default: 2030)
@@ -67,7 +66,6 @@ class Config:
     workers: int = 4
     batch_size: int = 500
     checkpoint_interval: int = 100  # Commit every N files/hashes
-    organize_layout: str = "yyyy_mm"  # yyyy_mm or yyyy
     dated_filenames: bool = False
 
     # QC thresholds

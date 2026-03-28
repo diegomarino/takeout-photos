@@ -32,7 +32,6 @@ def main() -> None:
         --workers: Number of parallel workers (default: 4)
         --dry-run: Simulate without making changes
         --verbose: Enable debug logging
-        --layout: Organization layout (yyyy_mm or yyyy, default: yyyy_mm)
         --organized-dir: Custom output directory for organized photos
         --keep-extracted-files: Preserve extracted/ after organizing
         --delete-zips-after-extract: Delete ZIPs after extraction
@@ -81,9 +80,6 @@ Examples:
   # Use 8 parallel workers for faster processing
   takeout-photos --workdir ~/google_takeout_work --workers 8 process
 
-  # Organize by year only (YYYY instead of YYYY/MM)
-  takeout-photos --workdir ~/google_takeout_work --layout yyyy process
-
   # Prefix filenames with date for better sorting
   takeout-photos --workdir ~/work --dated-filenames process
 
@@ -131,12 +127,6 @@ For more information, visit: https://github.com/your-repo/takeout-photos
         "-v",
         action="store_true",
         help="Enable verbose debug logging",
-    )
-    parser.add_argument(
-        "--layout",
-        choices=["yyyy_mm", "yyyy"],
-        default="yyyy_mm",
-        help="Organization layout: yyyy_mm (2023/05/) or yyyy (2023/) (default: yyyy_mm)",
     )
     parser.add_argument(
         "--skip-deps-check",
@@ -255,7 +245,6 @@ For more information, visit: https://github.com/your-repo/takeout-photos
         workers=args.workers,
         dry_run=args.dry_run,
         verbose=args.verbose,
-        organize_layout=args.layout,
         delete_zips_after_extract=args.delete_zips_after_extract,
         dated_filenames=args.dated_filenames,
         organized_dir=args.organized_dir,
