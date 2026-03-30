@@ -180,4 +180,8 @@ def step_validate_formats(
         if errors:
             log.warning(f"Encountered {len(errors)} errors during validation")
 
-    log.info(f"  Formats validated: {corrected_count:,} corrections ({timer.format_elapsed()})")
+    log.info(
+        f"  Formats validated: {len(files):,} files,"
+        f" {corrected_count:,} corrections,"
+        f" {len(errors):,} errors ({timer.format_elapsed()})"
+    )

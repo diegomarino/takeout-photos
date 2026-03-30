@@ -109,11 +109,13 @@ def step_qc(config: Config, db: PipelineDB, log: logging.Logger) -> None:
             report.write(f"# Organized directory: {config.organized_dir}\n\n")
 
             # Files without dates
+            no_date_count = 0
             no_date = config.organized_dir / "no_date"
             if no_date.exists():
                 files = list(no_date.rglob("*"))  # Use rglob to get files in subdirs too
                 files = [f for f in files if f.is_file() and not should_ignore_path(f)]
-                report.write(f"## Files without DateTimeOriginal: {len(files)}\n")
+                no_date_count = len(files)
+                report.write(f"## Files without DateTimeOriginal: {no_date_count}\n")
                 for f in files[:50]:  # Limit output
                     # Show path relative to organized directory
                     rel_path = f.relative_to(config.organized_dir)

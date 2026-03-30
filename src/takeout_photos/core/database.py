@@ -476,7 +476,8 @@ class PipelineDB:
         # Remove common JSON suffixes to get media filename
         json_suffixes = [
             ".supplemental-metadata.json",
-            ".supplemental-metada.json",  # truncated
+            ".supplemental-metadat.json",
+            ".supplemental-metada.json",
             ".supplemental-metad.json",
             ".supplemental-meta.json",
             ".supplemental-met.json",
@@ -484,11 +485,16 @@ class PipelineDB:
             ".supplemental-m.json",
             ".supplemental-.json",
             ".supplemental.json",
+            ".supplementa.json",
             ".supplement.json",
+            ".supplemen.json",
+            ".suppleme.json",
+            ".supplem.json",
             ".supple.json",
             ".suppl.json",
             ".supp.json",
             ".sup.json",
+            ".su.json",
             ".s.json",
             ".json",
         ]

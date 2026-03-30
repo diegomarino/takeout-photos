@@ -22,9 +22,10 @@ def test_metadata_failure_leaves_files_pending(tmp_path):
         photo_taken_ts=1234567890,
     )
 
-    # Mock exiftool to return failure
+    # Mock exiftool to return real failure (returncode=2)
+    # Note: returncode=1 means minor warnings — metadata was still written
     mock_result = MagicMock()
-    mock_result.returncode = 1  # Failure
+    mock_result.returncode = 2  # Real failure
 
     with patch("takeout_photos.stages.metadata.run_exiftool", return_value=mock_result):
         step_apply_metadata(config, db, "test.zip", MagicMock())

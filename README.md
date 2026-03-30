@@ -208,7 +208,6 @@ This prefixes filenames with their capture date (`2023-05-15_IMG_1234.jpg`) for 
 - `--workers N`: Parallel workers for hashing (default: 4)
 - `--dry-run`: Simulate without making changes
 - `--verbose`, `-v`: Enable debug logging
-- `--layout`: Organization layout: `yyyy_mm` (default) or `yyyy`
 - `--dated-filenames`: Prefix filenames with date (YYYY-MM-DD\_) for better sorting
 - `--organized-dir`: Custom output directory for organized photos
 - `--keep-extracted-files`: Preserve `extracted/` after organizing
@@ -225,7 +224,6 @@ from takeout_photos import Config, Pipeline
 config = Config(
     workdir="/path/to/work",
     workers=8,
-    organize_layout="yyyy_mm",
     dated_filenames=True  # Prefix filenames with YYYY-MM-DD_
 )
 
@@ -309,12 +307,12 @@ ZIPs:
 ~/google_takeout_work/
 ├── takeout-001.zip         # Place Google Takeout ZIPs in workdir root
 ├── takeout-002.zip
-├── extracted/              # Temporary extraction (merged)
-├── duplicates/             # Duplicates moved here
-├── organized_media/        # 🎯 Final organized output
+├── extracted/              # Temporary extraction (merged, auto-deleted after organizing)
+├── duplicates/             # Duplicates moved here (safe to delete after verification)
+├── organized_media/        # Final organized output
 │   ├── 2019/
-│   │   ├── 01/
-│   │   ├── 02/
+│   │   ├── 2019_01/
+│   │   ├── 2019_02/
 │   │   └── ...
 │   ├── 2020/
 │   └── no_date/           # Files without DateTimeOriginal
@@ -326,16 +324,18 @@ ZIPs:
 
 ## ⚙️ Processing Pipeline
 
-The pipeline processes Google Takeout exports through 8 stages:
+The pipeline processes Google Takeout exports in two phases:
 
-1. **Extract** — decompress all Takeout ZIPs into a single working directory
-2. **Validate** — fix mismatched extensions (e.g. `.HEIC` files that are actually JPEG)
-3. **Metadata** — parse Google's JSON sidecars and write the real date + GPS into EXIF
-4. **Hash** — fingerprint every file with content hashing (xxhash/SHA256)
-5. **Stage** — move fingerprinted files to a staging area
-6. **Dedupe** — detect and isolate duplicates across all ZIPs
-7. **Organize** — sort into `organized_media/YYYY/MM/` based on `DateTimeOriginal`
-8. **QC** — flag suspicious dates and generate a summary report to `logs/qc_*.txt`
+**Phase 1: Merge-Extract** — all ZIPs extracted to a shared `extracted/` directory so JSON sidecars from different ZIPs can be matched to their media files.
+
+**Phase 2: Per-ZIP Batch Processing** — each ZIP's files go through:
+
+1. **Validate** — fix mismatched extensions (e.g. `.HEIC` files that are actually JPEG)
+2. **Metadata** — parse Google's JSON sidecars and write the real date + GPS into EXIF
+3. **Hash** — fingerprint every file with content hashing (xxhash/SHA256)
+4. **Organize** — sort into `organized_media/YYYY/YYYY_MM/` with inline deduplication
+
+**Phase 3: Quality Control** — flag suspicious dates and generate a summary report to `logs/qc_*.txt`
 
 [→ Detailed Pipeline Flow Diagrams](docs/pipeline-flow.md)
 
@@ -484,22 +484,48 @@ Reference: <https://github.com/laurentlbm/google-photos-takeout-date-fixer>
 
 ---
 
-## 🧹 Post-Processing Cleanup
+## Post-Processing Tools
+
+The `tools/` directory contains standalone scripts for post-pipeline analysis and fixes. All require `--workdir` and run from the project root with the virtualenv active.
+
+### Recommended post-processing order
+
+```bash
+# 1. Fix files that got wrong dates from cross-folder JSON mismatch
+#    (requires extracted/ still present)
+python tools/fix_wrong_year.py --workdir ~/work
+
+# 2. Move no_date files to correct folders by reading EXIF dates
+python tools/fix_no_date.py --workdir ~/work
+
+# 3. Remove (N) suffix duplicates with identical hashes
+python tools/dedup_organized.py --workdir ~/work           # dry-run first
+python tools/dedup_organized.py --workdir ~/work --delete
+
+# 4. Analyze remaining no_date files
+python tools/analyze_no_date.py --workdir ~/work
+
+# 5. Report cross-folder duplicates by filename + size
+python tools/find_cross_dupes.py --workdir ~/work
+```
+
+| Tool | Purpose |
+| --- | --- |
+| `fix_wrong_year.py` | Fix files where JSON metadata came from a different year's folder |
+| `fix_no_date.py` | Read EXIF/CreateDate from no_date files and move to correct YYYY/YYYY_MM |
+| `dedup_organized.py` | Find/delete `filename(1).ext` duplicates by hash comparison (dry-run by default) |
+| `analyze_no_date.py` | Categorize remaining no_date files as SAFE_DELETE, REVIEW, or ORPHAN |
+| `find_cross_dupes.py` | Report files with same base name across different folders (0.1% size tolerance) |
+
+### Cleanup
 
 After verifying `organized_media/` is correct:
 
 ```bash
 # Delete intermediate directories
-rm -rf ~/google_takeout_work/extracted
-
-# Review duplicates before deleting
-ls -lh ~/google_takeout_work/duplicates/ | head -20
-
-# Delete duplicates if satisfied
-rm -rf ~/google_takeout_work/duplicates
+rm -rf ~/work/extracted
+rm -rf ~/work/duplicates
 ```
-
-**Disk space recovery:** Cleaning up intermediate directories recovers disk space used during extraction.
 
 ---
 
@@ -532,26 +558,31 @@ takeout-photos --workdir ~/work process
 
 **Possible causes:**
 
-1. JSON files not found (pattern mismatch)
+1. JSON sidecar not matched (truncated filenames, missing suffix patterns)
 2. JSON metadata missing `photoTakenTime`
 3. No embedded EXIF dates
+4. Cross-folder JSON mismatch applied wrong date
 
 **Solutions:**
 
-1. Check QC report: `cat logs/qc_*.txt`
-2. Enable verbose mode: `--verbose` to see JSON matching details
-3. Use file modification date as fallback (requires code change)
+1. Run post-processing tools: `python tools/fix_no_date.py --workdir ~/work`
+2. Check QC report: `cat logs/qc_*.txt`
+3. Analyze remaining: `python tools/analyze_no_date.py --workdir ~/work`
+4. Enable verbose mode: `--verbose` to see JSON matching details
 
 ### Running out of disk space
 
-**Space requirements:** ~2x the ZIP size
+**Space requirements:** ~2x the total ZIP size during Phase 1 (all ZIPs extracted), then ~1x for the final organized library.
 
-- 1x for `extracted/`
-- 1x for `organized_media/`
+**Example:** 50GB of ZIPs → need ~100GB free during processing, ~50GB final.
 
-**Example:** 50GB of ZIPs → need ~100GB free
+**Large exports (>1TB):** Use `--delete-zips-after-extract` to free space progressively. Each ZIP is deleted after extraction, so you only need space for all extracted files + the remaining ZIPs.
 
-**Alternative:** Process in batches, cleaning `extracted/` after each batch.
+**exFAT volumes:** exFAT uses large cluster sizes (up to 1MB on 4TB drives). Each small file (JSON sidecars, macOS `._` files) wastes nearly 1MB. This can add hundreds of GB of overhead. Consider using APFS/HFS+ or reformatting with smaller cluster sizes. Disable macOS resource forks on external drives:
+
+```bash
+defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+```
 
 ### Slow processing
 

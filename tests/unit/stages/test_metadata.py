@@ -249,8 +249,8 @@ class TestStepApplyMetadata:
         db.update_file.assert_not_called()
         db.commit.assert_not_called()
 
-    def test_apply_metadata_handles_exiftool_warnings(self, config, db, logger, tmp_path):
-        """Test handling of exiftool warnings."""
+    def test_apply_metadata_handles_exiftool_minor_warnings(self, config, db, logger, tmp_path):
+        """Test that minor exiftool warnings (returncode=1) are treated as success."""
         test_file = tmp_path / "photo.jpg"
         test_file.write_bytes(b"image")
 
@@ -269,12 +269,41 @@ class TestStepApplyMetadata:
         db.commit = MagicMock()
 
         with patch("takeout_photos.stages.metadata.run_exiftool") as mock_exiftool:
-            # Simulate exiftool failure
+            # Simulate exiftool minor warnings (returncode=1)
             mock_exiftool.return_value = MagicMock(returncode=1, stderr="Warning: some minor issue")
 
             step_apply_metadata(config, db, "test.zip", logger)
 
-            # Files should NOT be updated when exiftool fails (stay pending for retry)
+            # Files SHOULD be updated — returncode=1 means minor warnings, metadata was written
+            db.update_file.assert_called_once()
+            db.commit.assert_called_once()
+
+    def test_apply_metadata_handles_exiftool_real_failure(self, config, db, logger, tmp_path):
+        """Test that real exiftool errors (returncode=2) leave files pending."""
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"image")
+
+        db.get_files_for_zip = MagicMock(
+            return_value=[
+                {
+                    "id": 1,
+                    "original_path": str(test_file),
+                    "photo_taken_ts": 1621234567,
+                    "geo_lat": None,
+                    "geo_lon": None,
+                }
+            ]
+        )
+        db.update_file = MagicMock()
+        db.commit = MagicMock()
+
+        with patch("takeout_photos.stages.metadata.run_exiftool") as mock_exiftool:
+            # Simulate exiftool real failure (returncode=2)
+            mock_exiftool.return_value = MagicMock(returncode=2, stderr="Error: fatal issue")
+
+            step_apply_metadata(config, db, "test.zip", logger)
+
+            # Files should NOT be updated when exiftool truly fails
             db.update_file.assert_not_called()
             db.commit.assert_not_called()
 

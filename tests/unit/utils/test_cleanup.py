@@ -174,10 +174,19 @@ class TestLogPipelineSummary:
             result = MagicMock()
             if "status = 'organized'" in query:
                 result.fetchone.return_value = (12543,)
+            elif "status = 'error'" in query:
+                result.fetchone.return_value = (0,)
             elif "content_hash IN (SELECT hash FROM organized_files)" in query:
                 result.fetchone.return_value = (234,)
             elif "COUNT(DISTINCT name)" in query:
                 result.fetchone.return_value = (3,)
+            elif "has_json" in query:
+                result.fetchone.return_value = {
+                    "total": 12543,
+                    "with_json": 12000,
+                    "with_date": 11800,
+                    "with_gps": 4000,
+                }
             return result
 
         mock_conn.execute = mock_execute
@@ -236,8 +245,17 @@ class TestLogPipelineSummary:
                 result.fetchone.return_value = (100,)
             elif "content_hash IN (SELECT hash FROM organized_files)" in query:
                 result.fetchone.return_value = (0,)
+            elif "status = 'error'" in query:
+                result.fetchone.return_value = (0,)
             elif "COUNT(DISTINCT name)" in query:
                 result.fetchone.return_value = (1,)
+            elif "has_json" in query:
+                result.fetchone.return_value = {
+                    "total": 100,
+                    "with_json": 90,
+                    "with_date": 90,
+                    "with_gps": 30,
+                }
             return result
 
         mock_conn.execute = mock_execute
@@ -268,10 +286,19 @@ class TestLogPipelineSummary:
             result = MagicMock()
             if "status = 'organized'" in query:
                 result.fetchone.return_value = (100,)
+            elif "status = 'error'" in query:
+                result.fetchone.return_value = (0,)
             elif "content_hash IN (SELECT hash FROM organized_files)" in query:
                 result.fetchone.return_value = (0,)
             elif "COUNT(DISTINCT name)" in query:
                 result.fetchone.return_value = (1,)
+            elif "has_json" in query:
+                result.fetchone.return_value = {
+                    "total": 100,
+                    "with_json": 90,
+                    "with_date": 90,
+                    "with_gps": 30,
+                }
             return result
 
         mock_conn.execute = mock_execute
@@ -301,10 +328,19 @@ class TestLogPipelineSummary:
             result = MagicMock()
             if "status = 'organized'" in query:
                 result.fetchone.return_value = (100,)
+            elif "status = 'error'" in query:
+                result.fetchone.return_value = (0,)
             elif "content_hash IN (SELECT hash FROM organized_files)" in query:
                 result.fetchone.return_value = (0,)
             elif "COUNT(DISTINCT name)" in query:
                 result.fetchone.return_value = (1,)
+            elif "has_json" in query:
+                result.fetchone.return_value = {
+                    "total": 100,
+                    "with_json": 90,
+                    "with_date": 90,
+                    "with_gps": 30,
+                }
             return result
 
         mock_conn.execute = mock_execute
@@ -346,10 +382,19 @@ class TestLogPipelineSummary:
             result = MagicMock()
             if "status = 'organized'" in query:
                 result.fetchone.return_value = (0,)
-            elif "is_duplicate = 1" in query:
+            elif "status = 'error'" in query:
+                result.fetchone.return_value = (0,)
+            elif "content_hash IN (SELECT hash FROM organized_files)" in query:
                 result.fetchone.return_value = (0,)
             elif "COUNT(DISTINCT name)" in query:
                 result.fetchone.return_value = (0,)
+            elif "has_json" in query:
+                result.fetchone.return_value = {
+                    "total": 0,
+                    "with_json": 0,
+                    "with_date": 0,
+                    "with_gps": 0,
+                }
             return result
 
         mock_conn.execute = mock_execute
@@ -360,8 +405,8 @@ class TestLogPipelineSummary:
             log_pipeline_summary(config, db, log, {})
 
         output = caplog.text
-        # Should count 3 errors
-        assert "Errors encountered: 3" in output
+        # Should count 3 EXIF errors + 0 pipeline errors
+        assert "Errors encountered: 3 (EXIF: 3, pipeline: 0)" in output
 
     def test_summary_statistics_accuracy(self, tmp_path: Path, caplog):
         """Verify database queries are called correctly."""
@@ -381,10 +426,19 @@ class TestLogPipelineSummary:
             result = MagicMock()
             if "status = 'organized'" in query:
                 result.fetchone.return_value = (42,)
+            elif "status = 'error'" in query:
+                result.fetchone.return_value = (0,)
             elif "content_hash IN (SELECT hash FROM organized_files)" in query:
                 result.fetchone.return_value = (5,)
             elif "COUNT(DISTINCT name)" in query:
                 result.fetchone.return_value = (2,)
+            elif "has_json" in query:
+                result.fetchone.return_value = {
+                    "total": 42,
+                    "with_json": 40,
+                    "with_date": 40,
+                    "with_gps": 15,
+                }
             return result
 
         mock_conn.execute = mock_execute
@@ -395,12 +449,14 @@ class TestLogPipelineSummary:
             log_pipeline_summary(config, db, log, {})
 
         # Verify correct queries were executed
-        assert len(queries_executed) == 3
+        assert len(queries_executed) == 5
         assert any("status = 'organized'" in q for q in queries_executed)
+        assert any("status = 'error'" in q for q in queries_executed)
         assert any(
             "content_hash IN (SELECT hash FROM organized_files)" in q for q in queries_executed
         )
         assert any("COUNT(DISTINCT name)" in q for q in queries_executed)
+        assert any("has_json" in q for q in queries_executed)
 
         # Verify correct values in output
         output = caplog.text

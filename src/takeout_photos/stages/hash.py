@@ -96,6 +96,7 @@ def step_compute_hashes(config: Config, db: PipelineDB, zip_name: str, log: logg
         return
 
     with Timer() as timer:
+        error_count = 0
         # Use parallel processing for hash computation (CPU-bound task)
         with ProcessPoolExecutor(max_workers=config.workers) as executor:
             # Submit all hash jobs
@@ -106,6 +107,7 @@ def step_compute_hashes(config: Config, db: PipelineDB, zip_name: str, log: logg
                 file_id, hash_value, error = future.result()
 
                 if error:
+                    error_count += 1
                     file_record = futures[future]
                     log.warning(f"Error computing hash for {file_record['original_path']}: {error}")
                     # Mark file as error so it's visible in status/QC reports
@@ -117,4 +119,9 @@ def step_compute_hashes(config: Config, db: PipelineDB, zip_name: str, log: logg
 
         db.commit()
 
-    log.info(f"  Hashes computed: {len(files_to_hash):,} files ({timer.format_elapsed()})")
+    already_hashed = len(files) - len(files_to_hash)
+    log.info(
+        f"  Hashes computed: {len(files_to_hash):,} files,"
+        f" {already_hashed:,} skipped,"
+        f" {error_count:,} errors ({timer.format_elapsed()})"
+    )

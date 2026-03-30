@@ -81,11 +81,17 @@ def log_pipeline_summary(
 
     total_zips = db.conn.execute("SELECT COUNT(DISTINCT name) FROM zips").fetchone()[0]
 
-    # Count errors from exif warnings file if it exists
-    error_count = 0
+    # Count errors from exif warnings file and database
+    exif_error_count = 0
     if config.exif_warnings_file and config.exif_warnings_file.exists():
         with open(config.exif_warnings_file) as f:
-            error_count = sum(1 for line in f if line.startswith("Error:"))
+            exif_error_count = sum(1 for line in f if line.startswith("Error:"))
+
+    db_error_count = db.conn.execute(
+        "SELECT COUNT(*) FROM files WHERE status = 'error'"
+    ).fetchone()[0]
+
+    error_count = exif_error_count + db_error_count
 
     # Build summary message
     summary_lines = [
@@ -96,10 +102,43 @@ def log_pipeline_summary(
         f"ZIPs processed: {total_zips}",
         f"Files organized: {organized_count}",
         f"Duplicates found: {duplicate_count}",
-        f"Errors encountered: {error_count}",
-        "",
-        "Cleanup:",
+        f"Errors encountered: {error_count}"
+        + (f" (EXIF: {exif_error_count}, pipeline: {db_error_count})" if error_count > 0 else ""),
     ]
+
+    # Metadata coverage
+    meta_stats = db.conn.execute("""
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN has_json = 1 THEN 1 ELSE 0 END) as with_json,
+            SUM(CASE WHEN photo_taken_ts IS NOT NULL THEN 1 ELSE 0 END) as with_date,
+            SUM(CASE WHEN geo_lat IS NOT NULL THEN 1 ELSE 0 END) as with_gps
+        FROM files
+    """).fetchone()
+
+    if meta_stats and meta_stats["total"] > 0:
+        total = meta_stats["total"]
+        summary_lines.append("")
+        summary_lines.append("Metadata coverage:")
+        summary_lines.append(
+            f"  JSON matched: {meta_stats['with_json']:,}/{total:,}"
+            f" ({meta_stats['with_json']*100//total}%)"
+        )
+        summary_lines.append(
+            f"  Dates applied: {meta_stats['with_date']:,}/{total:,}"
+            f" ({meta_stats['with_date']*100//total}%)"
+        )
+        summary_lines.append(
+            f"  GPS applied: {meta_stats['with_gps']:,}/{total:,}"
+            f" ({meta_stats['with_gps']*100//total}%)"
+        )
+
+    summary_lines.extend(
+        [
+            "",
+            "Cleanup:",
+        ]
+    )
 
     total_cleaned = 0
     for dir_name, count in cleanup_stats.items():

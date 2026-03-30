@@ -72,11 +72,16 @@ def step_apply_metadata(config: Config, db: PipelineDB, zip_name: str, log: logg
 
     with Timer() as timer:
         # Prepare argument file for exiftool (more efficient than file-by-file)
+        date_count = 0
+        gps_count = 0
+        no_meta_count = 0
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as argfile:
             argfile_path = argfile.name
 
             for f in files:
                 if not f["photo_taken_ts"] and not f["geo_lat"]:
+                    no_meta_count += 1
                     continue
 
                 path = f["original_path"]
@@ -90,6 +95,7 @@ def step_apply_metadata(config: Config, db: PipelineDB, zip_name: str, log: logg
                     exif_date = ts_to_exif_date(f["photo_taken_ts"])
                     args.append(f"-DateTimeOriginal={exif_date}")
                     args.append(f"-CreateDate={exif_date}")
+                    date_count += 1
 
                 # GPS coordinates - always apply if available from JSON
                 if f["geo_lat"] and f["geo_lon"]:
@@ -100,6 +106,7 @@ def step_apply_metadata(config: Config, db: PipelineDB, zip_name: str, log: logg
                     args.append(f"-GPSLatitudeRef={lat_ref}")
                     args.append(f"-GPSLongitude={abs(lon)}")
                     args.append(f"-GPSLongitudeRef={lon_ref}")
+                    gps_count += 1
 
                 if args:
                     for arg in args:
@@ -122,8 +129,10 @@ def step_apply_metadata(config: Config, db: PipelineDB, zip_name: str, log: logg
                     log=log,
                 )
 
-                # Only update if exiftool succeeded
-                if result.returncode == 0:
+                # exiftool returns 0 on success, 1 on minor warnings (e.g. bad
+                # MakerNotes), 2 on real errors. Treat 0 and 1 as success since
+                # metadata is still written when there are only minor warnings.
+                if result.returncode in (0, 1):
                     for f in files:
                         # Populate exif_datetime for organize phase optimization
                         # (avoid subprocess calls by reading from database instead)
@@ -133,7 +142,12 @@ def step_apply_metadata(config: Config, db: PipelineDB, zip_name: str, log: logg
                         else:
                             db.update_file(f["id"], status="meta_applied")
                     db.commit()
-                    log.info(f"  Metadata applied: {len(files):,} files ({timer.format_elapsed()})")
+                    log.info(
+                        f"  Metadata applied: {len(files):,} files"
+                        f" (dates: {date_count:,}, GPS: {gps_count:,},"
+                        f" no metadata: {no_meta_count:,})"
+                        f" ({timer.format_elapsed()})"
+                    )
                 else:
                     # Leave files in 'pending' for automatic retry
                     log.error(f"  Exiftool failed for {zip_name} (returncode={result.returncode})")
@@ -143,7 +157,11 @@ def step_apply_metadata(config: Config, db: PipelineDB, zip_name: str, log: logg
                     log.error(f"    Check warnings: {config.exif_warnings_file}")
                     log.error("  Files remain 'pending' for retry on next run")
             else:
-                log.info(f"[DRY RUN] Would apply metadata to {len(files)} files")
+                log.info(
+                    f"[DRY RUN] Would apply metadata to {len(files)} files"
+                    f" (dates: {date_count:,}, GPS: {gps_count:,},"
+                    f" no metadata: {no_meta_count:,})"
+                )
         finally:
             # Ensure argfile is always cleaned up, even if there's an exception
             if os.path.exists(argfile_path):
