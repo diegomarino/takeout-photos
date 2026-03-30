@@ -43,7 +43,7 @@ jobs:
           pytest tests/ -v --cov=takeout_photos --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         with:
           file: ./coverage.xml
