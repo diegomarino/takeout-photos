@@ -63,7 +63,7 @@ jobs:
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: takeout-photos-*-macos-arm64.tar.gz
           fail_on_unmatched_files: true
