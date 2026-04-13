@@ -35,7 +35,7 @@ fast = [
     "tqdm>=4.65.0",
 ]
 dev = [
-    "pytest>=7.0.0",
+    "pytest>=8.4.2",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
