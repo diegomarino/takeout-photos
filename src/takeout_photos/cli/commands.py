@@ -245,6 +245,38 @@ def cmd_reset(config: Config, zip_name: str | None = None) -> None:
     print("Reset complete.")
 
 
+def cmd_benchmark_disk(
+    target_dir: Path | None = None,
+    file_size_mb: int = 256,
+    block_size_kb: int = 1024,
+    num_passes: int = 3,
+    warmup: bool = True,
+) -> None:
+    """Run disk benchmark and print results.
+
+    Args:
+        target_dir: Directory to benchmark. None uses system temp.
+        file_size_mb: Test file size in megabytes.
+        block_size_kb: Block size in kilobytes.
+        num_passes: Number of passes.
+        warmup: Whether to run a warmup pass.
+    """
+    from takeout_photos.utils.disk_benchmark import (
+        format_benchmark_results,
+        run_disk_benchmark,
+    )
+
+    print(f"\nRunning disk benchmark ({file_size_mb} MB, {num_passes} passes)...")
+    summary = run_disk_benchmark(
+        target_dir=target_dir,
+        file_size_mb=file_size_mb,
+        block_size_kb=block_size_kb,
+        num_passes=num_passes,
+        warmup=warmup,
+    )
+    print(format_benchmark_results(summary))
+
+
 def cmd_recovery(config: Config, dry_run: bool = False) -> None:
     """
     Run recovery check to detect and fix pipeline inconsistencies.

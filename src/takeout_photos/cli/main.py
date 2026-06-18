@@ -200,6 +200,41 @@ For more information, visit: https://github.com/your-repo/takeout-photos
         help="Detect issues without fixing them (diagnostic mode)",
     )
 
+    # benchmark-disk command
+    sub_benchmark = subparsers.add_parser(
+        "benchmark-disk",
+        help="Measure disk read/write speeds",
+        description="Run sequential read/write benchmark on target directory",
+    )
+    sub_benchmark.add_argument(
+        "--target-dir",
+        type=Path,
+        help="Directory to benchmark (default: workdir or system temp)",
+    )
+    sub_benchmark.add_argument(
+        "--file-size",
+        type=int,
+        default=256,
+        help="Test file size in MB (default: 256)",
+    )
+    sub_benchmark.add_argument(
+        "--block-size",
+        type=int,
+        default=1024,
+        help="I/O block size in KB (default: 1024)",
+    )
+    sub_benchmark.add_argument(
+        "--passes",
+        type=int,
+        default=3,
+        help="Number of read+write passes (default: 3)",
+    )
+    sub_benchmark.add_argument(
+        "--no-warmup",
+        action="store_true",
+        help="Skip warmup pass",
+    )
+
     # Show friendly message if run with no arguments
     if len(sys.argv) == 1:
         print("takeout-photos - Google Photos Takeout Organizer\n")
@@ -208,10 +243,11 @@ For more information, visit: https://github.com/your-repo/takeout-photos
         print("  takeout-photos --workdir ~/work process    # Process Google Takeout ZIPs")
         print("  takeout-photos --help                      # Show all options\n")
         print("Common commands:")
-        print("  process   - Process and organize all Takeout ZIPs")
-        print("  status    - View current pipeline status")
-        print("  reset     - Reset pipeline state")
-        print("  recovery  - Fix inconsistencies\n")
+        print("  process        - Process and organize all Takeout ZIPs")
+        print("  status         - View current pipeline status")
+        print("  reset          - Reset pipeline state")
+        print("  recovery       - Fix inconsistencies")
+        print("  benchmark-disk - Measure disk read/write speeds\n")
         print("For detailed help: takeout-photos --help")
         sys.exit(0)
 
@@ -229,6 +265,20 @@ For more information, visit: https://github.com/your-repo/takeout-photos
 
         exit_code = cmd_doctor(config=config)
         sys.exit(exit_code)
+
+    # Handle benchmark-disk (works without --workdir, like --doctor)
+    if args.command == "benchmark-disk":
+        from takeout_photos.cli.commands import cmd_benchmark_disk
+
+        target = args.target_dir or (Path(args.workdir) if args.workdir else None)
+        cmd_benchmark_disk(
+            target_dir=target,
+            file_size_mb=args.file_size,
+            block_size_kb=args.block_size,
+            num_passes=args.passes,
+            warmup=not args.no_warmup,
+        )
+        sys.exit(0)
 
     # Require workdir for all other commands
     if not args.workdir:
