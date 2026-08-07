@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from takeout_photos.core.config import Config
+from takeout_photos.core.constants import RECOVERED_ORPHANS_ZIP
 from takeout_photos.core.database import PipelineDB
 from takeout_photos.core.recovery import RecoveryManager, RecoveryStats
 
@@ -191,6 +192,68 @@ def test_detect_orphaned_extracted(tmp_path):
     # Verify files were registered in DB
     rows = db.conn.execute("SELECT COUNT(*) FROM files").fetchone()
     assert rows[0] == 2, "Both orphans should be registered"
+
+
+def test_orphaned_extracted_uses_zip_suffixed_name_and_extracted_status(tmp_path):
+    """Orphans register under the reserved synthetic zip, advanced to 'extracted'.
+
+    Regression: previously the synthetic zip was named bare 'unknown' with
+    status 'pending'. Downstream stages query via get_files_for_zip(), which
+    appends '.zip', so they found zero files; and get_zips_needing_processing()
+    ignores 'pending', so nothing ever ran. Both must be fixed for a plain
+    `process` run to actually organize manually-added files. The name is a
+    reserved sentinel (RECOVERED_ORPHANS_ZIP) that cannot collide with a real
+    Takeout archive.
+    """
+    config = Config(workdir=tmp_path)
+    db = PipelineDB(config.db_path)
+    log = logging.getLogger(__name__)
+
+    config.extracted_dir.mkdir(parents=True)
+    (config.extracted_dir / "orphan1.jpg").write_bytes(b"test1")
+    (config.extracted_dir / "orphan2.jpg").write_bytes(b"test2")
+
+    mgr = RecoveryManager(config, db, log)
+    mgr._detect_and_recover_orphaned_extracted()
+
+    assert mgr.stats.orphaned_extracted == 2
+
+    # The synthetic zip carries the '.zip' suffix and is queued for processing ...
+    assert db.get_zip_status(RECOVERED_ORPHANS_ZIP) == "extracted"
+    assert RECOVERED_ORPHANS_ZIP.endswith(".zip")
+    # ... and the old bare "unknown" name is NOT used.
+    assert db.get_zip_status("unknown") is None
+
+    # Files register under the sentinel name, so get_files_for_zip(stem) — which
+    # appends '.zip' — actually finds them (this is what was broken).
+    stem = RECOVERED_ORPHANS_ZIP[: -len(".zip")]
+    found = db.get_files_for_zip(stem)
+    assert len(found) == 2
+    assert all(f["zip_name"] == RECOVERED_ORPHANS_ZIP for f in found)
+
+    # And the batch pipeline would pick it up.
+    assert RECOVERED_ORPHANS_ZIP in db.get_zips_needing_processing()
+
+    db.close()
+
+
+def test_orphaned_extracted_dry_run_registers_nothing(tmp_path):
+    """Dry-run detects orphans but registers no zip/files and changes no status."""
+    config = Config(workdir=tmp_path)
+    db = PipelineDB(config.db_path)
+    log = logging.getLogger(__name__)
+
+    config.extracted_dir.mkdir(parents=True)
+    (config.extracted_dir / "orphan.jpg").write_bytes(b"test")
+
+    mgr = RecoveryManager(config, db, log, dry_run=True)
+    mgr._detect_and_recover_orphaned_extracted()
+
+    assert mgr.stats.orphaned_extracted == 1
+    assert db.get_zip_status(RECOVERED_ORPHANS_ZIP) is None
+    assert db.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
+
+    db.close()
 
 
 def test_detect_missing_files(tmp_path):

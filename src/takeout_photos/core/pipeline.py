@@ -262,12 +262,28 @@ class Pipeline:
         # Type narrowing (already asserted in __init__ but needed for mypy flow analysis)
         assert self.config.zips_dir is not None
 
+        from takeout_photos.core.constants import RECOVERED_ORPHANS_ZIP
         from takeout_photos.utils.system_files import should_ignore_path
 
         zips = sorted(self.config.zips_dir.glob("*.zip"))
 
         # Filter out system files
         zips = [z for z in zips if not should_ignore_path(z)]
+
+        # Guard the reserved synthetic ZIP name. This name is used internally for
+        # files recovered from extracted/ that have no real originating ZIP; a
+        # physical archive sharing it would otherwise silently adopt the
+        # synthetic row's status and never get extracted. Skip + warn loudly so
+        # the (extremely unlikely) collision is visible and actionable instead
+        # of causing silent data loss.
+        reserved = [z for z in zips if z.name == RECOVERED_ORPHANS_ZIP]
+        if reserved:
+            self.log.warning(
+                f"Ignoring '{RECOVERED_ORPHANS_ZIP}' in the ZIP directory: this "
+                f"name is reserved for internal orphan recovery. Rename the file "
+                f"to have it processed."
+            )
+            zips = [z for z in zips if z.name != RECOVERED_ORPHANS_ZIP]
 
         self.log.info(f"ZIPs found: {len(zips)}")
 

@@ -10,6 +10,7 @@ Common recipes and workflows for processing Google Photos Takeout exports.
 - [Processing Your First Takeout](#processing-your-first-takeout)
 - [Organizing to External Drive](#organizing-to-external-drive)
 - [Incremental Processing](#incremental-processing)
+- [Processing Non-Takeout Input (loose images, no JSON)](#processing-non-takeout-input-loose-images-no-json)
 - [Recovery After Interruption](#recovery-after-interruption)
 - [Checking Processing Status](#checking-processing-status)
 - [Resetting a Corrupted ZIP](#resetting-a-corrupted-zip)
@@ -194,6 +195,40 @@ rows = db.conn.execute("SELECT name, status FROM zips ORDER BY name").fetchall()
 for row in rows:
     print(f"{row['name']}: {row['status']}")
 ```
+
+---
+
+## Processing Non-Takeout Input (loose images, no JSON)
+
+You are not limited to Google Takeout ZIPs. You can point the pipeline at plain
+image files that have **no** JSON sidecar — for example, a folder of photos
+copied off a camera or phone. As long as each file carries an embedded
+`DateTimeOriginal` EXIF tag, it will be organized into `YYYY/YYYY_MM/` by that
+date. (Files with neither a JSON date nor a readable embedded date go to
+`no_date/`.)
+
+Drop the files directly into `<workdir>/extracted/` and run `process`:
+
+```bash
+mkdir -p ~/takeout_work/extracted
+cp ~/Camera/*.jpg ~/takeout_work/extracted/
+
+takeout-photos process \
+  --workdir ~/takeout_work \
+  --organized-dir ~/Pictures/Library
+```
+
+What happens under the hood:
+
+1. Startup recovery detects the loose files in `extracted/`, registers them
+   under a reserved synthetic ZIP (`__recovered_orphans__.zip`), and marks that
+   batch `extracted`.
+2. Format validation reads each file's embedded `DateTimeOriginal` and stores it.
+3. There is no JSON to apply, so the embedded date is kept as-is.
+4. Organization buckets each file into `organized_media/YYYY/YYYY_MM/`.
+
+Date priority is always: JSON `photoTakenTime` (when present) → embedded
+`DateTimeOriginal` → `no_date/`.
 
 ---
 

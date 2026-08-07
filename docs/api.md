@@ -156,7 +156,9 @@ The database maintains six main tables:
 - `staged_path`: Relative path during organize staging (DB-before-move pattern)
 - `final_path`: Final relative path in organized_dir after organization
 - `error_msg`: Error description for failed files (status='error')
-- `exif_datetime`: EXIF DateTimeOriginal from JSON (cached for performance)
+- `exif_datetime`: Capture date used for organizing (cached for performance).
+  Populated from JSON `photoTakenTime` when a Takeout sidecar exists, otherwise
+  from the file's embedded `DateTimeOriginal` during format validation.
 - `content_hash`: File content hash for deduplication
 
 #### Constructor
@@ -514,7 +516,10 @@ Detects real file types using exiftool and corrects extensions if needed. Google
 
 - May rename files to correct extensions (appending: `IMG_6486.HEIC` → `IMG_6486.HEIC.jpg`)
 - Updates file paths in database
-- Stores existing EXIF datetime when an extension is corrected
+- Stores the embedded `DateTimeOriginal` in `files.exif_datetime` **whenever a
+  file has one**, regardless of whether its extension was corrected. This is the
+  fallback that lets non-Takeout input (loose images with no JSON sidecar) be
+  organized by their real capture date instead of landing in `no_date/`.
 
 **Example:**
 
@@ -522,7 +527,8 @@ Detects real file types using exiftool and corrects extensions if needed. Google
 pipeline = Pipeline(config)
 pipeline.extract_all_zips()
 pipeline.validate_formats()
-# Corrects mismatched extensions
+# Corrects mismatched extensions and records embedded EXIF dates for files
+# that have no JSON sidecar
 ```
 
 ---
@@ -1445,7 +1451,8 @@ Google Takeout exports often have incorrect file extensions (.HEIC files that ar
 
 - May rename files to correct extensions (appending, not replacing)
 - Updates `original_path` in database if files are renamed
-- Stores existing EXIF datetime for comparison
+- Stores the embedded `DateTimeOriginal` in `files.exif_datetime` whenever
+  present, independent of whether a rename happened
 
 **Process:**
 
@@ -1454,7 +1461,18 @@ Google Takeout exports often have incorrect file extensions (.HEIC files that ar
 3. Workers read existing EXIF metadata in the same call
 4. Main thread receives results and renames files if needed: `IMG_6486.HEIC` → `IMG_6486.HEIC.jpg`
 5. Update database with corrected paths
-6. Store existing EXIF datetime if present
+6. Store the embedded EXIF datetime whenever present (every file, not only
+   renamed ones)
+
+**Embedded-EXIF fallback (non-Takeout input):**
+
+Most files already have the correct extension, so no rename occurs. This stage
+still records their embedded `DateTimeOriginal`, which is what allows files with
+**no** Google Takeout JSON sidecar to be organized by date. Later,
+`step_apply_metadata` overwrites `exif_datetime` from JSON `photoTakenTime` when
+a sidecar exists, but leaves the embedded value untouched when it does not — so
+the date priority is: JSON `photoTakenTime` → embedded `DateTimeOriginal` →
+`no_date/`.
 
 **Common Corrections:**
 
@@ -2749,9 +2767,17 @@ Recovery runs automatically at pipeline startup and reconciles:
    - Compute hash and insert into `organized_files`
    - Update `files` table if matching record exists
 
-4. **Orphaned Extracted Files**: Register with "unknown" ZIP
+4. **Orphaned Extracted Files** (also: "Manual files added to `extracted/`"):
+   Register under a reserved synthetic ZIP and queue for processing
    - Scan `extracted/` for unregistered files
-   - Register with `zip_name='unknown'`
+   - Register with `zip_name=constants.RECOVERED_ORPHANS_ZIP`
+     (`"__recovered_orphans__.zip"`). The `.zip` suffix matters — every
+     downstream stage queries via `get_files_for_zip()`, which appends `.zip` —
+     and the reserved sentinel name cannot collide with a real Takeout archive
+     (ZIP discovery skips + warns if a physical file uses it).
+   - Set that row to `status='extracted'` so a subsequent `process` run actually
+     validates, hashes, and organizes them (a plain `register_zip()` would leave
+     it `pending`, which the batch phase skips)
 
 5. **Missing Files**: Mark as error
    - Sample files table for filesystem mismatches

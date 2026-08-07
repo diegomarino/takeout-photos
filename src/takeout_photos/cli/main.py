@@ -326,4 +326,10 @@ For more information, visit: https://github.com/your-repo/takeout-photos
 
 
 if __name__ == "__main__":
+    # See src/takeout_photos/__main__.py for the full rationale. Required first
+    # so multiprocessing worker bootstrap in a frozen build is intercepted
+    # before argparse ever runs. Harmless no-op in a normal run.
+    import multiprocessing
+
+    multiprocessing.freeze_support()
     main()

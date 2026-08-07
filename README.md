@@ -482,6 +482,21 @@ Google Takeout is known to export files with incorrect embedded EXIF dates. The 
 
 Reference: <https://github.com/laurentlbm/google-photos-takeout-date-fixer>
 
+**Fallback for non-Takeout input (no JSON):**
+
+When a file has **no** Google Takeout JSON sidecar — for example, loose images
+copied straight into `extracted/`, or any export that omits the `.json` metadata
+— the pipeline falls back to the file's own embedded `DateTimeOriginal` EXIF tag.
+During format validation the embedded date is read and stored, and organization
+then buckets the file into `YYYY/YYYY_MM/` by that date. Only files with **no
+JSON date and no readable embedded date** end up in `no_date/`.
+
+In short, the date priority is:
+
+1. JSON `photoTakenTime` (when a sidecar is present) — always wins
+2. Embedded EXIF `DateTimeOriginal` (fallback when there is no JSON)
+3. `no_date/` (neither available)
+
 ---
 
 ## Post-Processing Tools

@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 
 from takeout_photos.core.config import Config
+from takeout_photos.core.constants import RECOVERED_ORPHANS_ZIP
 from takeout_photos.core.database import PipelineDB
 from takeout_photos.utils.system_files import should_ignore_path
 
@@ -321,7 +322,11 @@ class RecoveryManager:
         Recovery action:
         - Scan extracted/ directory
         - Check each file against files table
-        - Register orphans with "unknown" ZIP association
+        - Register orphans under a reserved synthetic ZIP name
+          (constants.RECOVERED_ORPHANS_ZIP)
+        - Set that synthetic ZIP's status to 'extracted' so the next `process` run
+          validates, hashes, and organizes them (matching the "Manual files
+          added to extracted/" recovery scenario documented in docs/api.md)
 
         Dry-run mode: Only counts, does not register files.
         """
@@ -349,15 +354,23 @@ class RecoveryManager:
             if str(file_path) not in db_paths:
                 orphans.append(file_path)
 
-        # Ensure "unknown" ZIP exists for orphans
+        # Synthetic ZIP name for orphaned files. It MUST carry the ".zip"
+        # suffix that every downstream reader expects: get_files_for_zip()
+        # (used by validate/metadata/hash) appends ".zip" to the name it
+        # queries with, so registering files under a bare "unknown" makes those
+        # stages silently find zero files and never process the orphans. The
+        # reserved sentinel name (see constants.RECOVERED_ORPHANS_ZIP) also
+        # cannot collide with a real Takeout archive.
+        recovered_zip = RECOVERED_ORPHANS_ZIP
+
+        # Ensure the synthetic ZIP row exists for orphans
         if orphans and not self.dry_run:
-            # Check if unknown ZIP exists
             zip_exists = self.db.conn.execute(
-                "SELECT COUNT(*) FROM zips WHERE name = 'unknown'"
+                "SELECT COUNT(*) FROM zips WHERE name = ?", (recovered_zip,)
             ).fetchone()[0]
 
             if zip_exists == 0:
-                self.db.register_zip("unknown")
+                self.db.register_zip(recovered_zip)
 
         # Register orphans
         for file_path in orphans:
@@ -367,13 +380,22 @@ class RecoveryManager:
                 file_size = file_path.stat().st_size
 
                 self.db.register_file(
-                    zip_name="unknown",
+                    zip_name=recovered_zip,
                     original_path=str(file_path),
                     file_size=file_size,
                 )
                 self.log.info(f"Registered orphan: {file_path.name}")
 
             self.stats.orphaned_extracted += 1
+
+        # Advance the synthetic ZIP to 'extracted' so a subsequent `process`
+        # run actually picks it up. register_zip() leaves status='pending', but
+        # get_zips_needing_processing() only returns 'extracted'/'processing',
+        # so without this the orphans would be registered and then stall
+        # forever. update_zip_status() commits, which also flushes the
+        # register_file() inserts above.
+        if orphans and not self.dry_run:
+            self.db.update_zip_status(recovered_zip, "extracted")
 
     def _detect_and_recover_missing_files(self):
         """

@@ -40,9 +40,18 @@ def _validate_worker(file_record: dict) -> tuple:
 
         # Detect real file type and read existing EXIF in one call
         real_type, existing_exif = get_file_type_and_exif(original_path)
+
+        # Read the embedded EXIF date once and propagate it on EVERY non-error
+        # return path. Files that arrive without a Google Takeout JSON sidecar
+        # (e.g. loose images dropped into extracted/) depend on this: organize
+        # buckets by files.exif_datetime, so if we read the date here and then
+        # discard it, they wrongly land in no_date/ despite having a valid
+        # DateTimeOriginal tag.
+        exif_datetime = existing_exif.get("DateTimeOriginal")
+
         if not real_type:
             # Not an error - just no type detection possible
-            return (file_record["id"], None, None, None)
+            return (file_record["id"], None, exif_datetime, None)
 
         # Determine if correction is needed (but don't rename yet)
         # We'll return the target path for the main thread to handle renaming
@@ -53,12 +62,11 @@ def _validate_worker(file_record: dict) -> tuple:
         if (current_ext == real_type_lower) or (
             current_ext in ["jpg", "jpeg"] and real_type_lower in ["jpg", "jpeg"]
         ):
-            # No correction needed - extension matches
-            return (file_record["id"], None, None, None)
+            # No correction needed - extension matches (still propagate EXIF date)
+            return (file_record["id"], None, exif_datetime, None)
         else:
             # Extension needs correction - return target path
             new_path = original_path.parent / f"{original_path.name}.{real_type_lower}"
-            exif_datetime = existing_exif.get("DateTimeOriginal")
             return (file_record["id"], str(new_path), exif_datetime, None)
 
     except Exception as e:
@@ -93,7 +101,10 @@ def step_validate_formats(
     Side Effects:
         - May rename files to correct extensions
         - Updates original_path in database if files are renamed
-        - Stores exif_datetime in database when an extension is corrected
+        - Stores exif_datetime in database whenever a file has an embedded
+          DateTimeOriginal tag, regardless of whether its extension was
+          corrected. This is the fallback that lets non-Takeout input (loose
+          images with no JSON sidecar) be organized by their real capture date.
 
     Example:
         >>> from takeout_photos.core.config import Config
@@ -128,6 +139,7 @@ def step_validate_formats(
 
     with Timer() as timer:
         corrected_count = 0
+        exif_stored_count = 0
         errors = []
 
         # Use parallel processing for validation (I/O-bound task - exiftool calls)
@@ -162,19 +174,24 @@ def step_validate_formats(
                             (new_path, file_id),
                         )
                         corrected_count += 1
-
-                        # Store EXIF datetime if present
-                        if exif_datetime:
-                            db.conn.execute(
-                                "UPDATE files SET exif_datetime = ? WHERE id = ?",
-                                (exif_datetime, file_id),
-                            )
                     except Exception as e:
                         log.warning(f"Failed to rename {original_path} to {target_path}: {e}")
                         errors.append((file_id, str(e)))
 
-        # Commit database changes only if there were corrections
-        if corrected_count > 0:
+                # Store embedded EXIF datetime whenever present, INDEPENDENT of
+                # whether an extension correction/rename happened. Most files
+                # already have a correct extension (no rename), so gating this on
+                # a rename would drop the date for the common case and send
+                # otherwise-datable files to no_date/ during organize.
+                if exif_datetime:
+                    db.conn.execute(
+                        "UPDATE files SET exif_datetime = ? WHERE id = ?",
+                        (exif_datetime, file_id),
+                    )
+                    exif_stored_count += 1
+
+        # Commit database changes if there were corrections or stored EXIF dates
+        if corrected_count > 0 or exif_stored_count > 0:
             db.commit()
 
         if errors:
@@ -183,5 +200,6 @@ def step_validate_formats(
     log.info(
         f"  Formats validated: {len(files):,} files,"
         f" {corrected_count:,} corrections,"
+        f" {exif_stored_count:,} embedded EXIF dates,"
         f" {len(errors):,} errors ({timer.format_elapsed()})"
     )

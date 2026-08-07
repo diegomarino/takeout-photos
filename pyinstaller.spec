@@ -25,6 +25,17 @@ a = Analysis(
         ('build/exiftool/lib', 'lib'),     # Perl modules in lib/
     ],
     hiddenimports=[
+        # multiprocessing internals used by ProcessPoolExecutor workers and the
+        # resource tracker. In a frozen build these are re-imported when a
+        # worker subprocess bootstraps; listing them explicitly guarantees they
+        # are present in the bundle even if PyInstaller's static analysis misses
+        # them (see __main__.py freeze_support() for the crash this prevents).
+        'multiprocessing',
+        'multiprocessing.spawn',
+        'multiprocessing.popen_spawn_posix',
+        'multiprocessing.resource_tracker',
+        'multiprocessing.pool',
+        'concurrent.futures.process',
         # Explicitly include all takeout_photos modules
         'takeout_photos.cli',
         'takeout_photos.cli.commands',

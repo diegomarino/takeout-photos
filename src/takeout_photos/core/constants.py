@@ -10,6 +10,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+# Reserved synthetic ZIP name for files recovered from extracted/ that have no
+# real originating ZIP (the "manual files added to extracted/" scenario).
+#
+# It carries the ".zip" suffix because every downstream stage queries via
+# get_files_for_zip(), which appends ".zip". The double-underscore sentinel is
+# deliberately chosen to be a name Google Takeout never produces (exports are
+# named "takeout-*.zip") and that no user would plausibly give a real archive,
+# so it cannot collide with a physical ZIP. ZIP discovery additionally treats
+# this exact name as reserved (skipping + warning if a physical file uses it),
+# making the no-collision guarantee explicit rather than merely improbable.
+RECOVERED_ORPHANS_ZIP = "__recovered_orphans__.zip"
+
 # Media file extensions recognized by the pipeline
 MEDIA_EXTENSIONS = {
     ".jpg",

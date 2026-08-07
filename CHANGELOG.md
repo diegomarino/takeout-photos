@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Embedded-EXIF fallback for non-Takeout input.** Files that carry a valid
+  embedded `DateTimeOriginal` but have no Google Takeout JSON sidecar (e.g. loose
+  images dropped into `extracted/`) were all being organized into `no_date/`
+  instead of `YYYY/YYYY_MM/`. Format validation already read each file's EXIF
+  date but discarded it on the common "extension already correct" code path, and
+  only persisted it when a rename happened. `_validate_worker` now returns the
+  embedded date on every non-error path, and `step_validate_formats` stores it
+  whenever present, independent of any extension correction. Date priority is
+  now explicitly: JSON `photoTakenTime` → embedded `DateTimeOriginal` →
+  `no_date/`.
+
+- **"Manual files added to `extracted/`" recovery path.** Orphan recovery
+  registered manually-added files under a synthetic `zip_name="unknown"` (no
+  `.zip` suffix), but every downstream stage queries via `get_files_for_zip()`,
+  which appends `.zip` — so the batch stages silently found zero files and never
+  processed the orphans. The synthetic zip was also left `status='pending'`,
+  which `get_zips_needing_processing()` skips. Recovery now registers the batch
+  under a reserved synthetic ZIP name (`__recovered_orphans__.zip`) and sets it
+  to `status='extracted'`, so a plain `process` run actually validates, hashes,
+  and organizes those files — matching what the docs already claimed happens
+  automatically. The reserved name cannot collide with a real Google Takeout
+  archive, and ZIP discovery explicitly skips (with a warning) any physical file
+  that uses it, so the no-collision guarantee is enforced rather than merely
+  assumed.
+
+- **Homebrew/PyInstaller macOS binary crash on `validate`/`hash`.** In a frozen
+  build, `sys.executable` is the bundled CLI itself, so `ProcessPoolExecutor`
+  worker and resource-tracker subprocesses re-invoked the whole CLI, which then
+  rejected the multiprocessing bootstrap arguments (e.g. `tracker_fd=11`) as an
+  invalid command and tore down the pool ("A process in the process pool was
+  terminated abruptly"). Added `multiprocessing.freeze_support()` as the first
+  call in the entry points (`__main__.py`, `cli/main.py`) and listed the
+  relevant `multiprocessing`/`concurrent.futures.process` modules as hidden
+  imports in `pyinstaller.spec`. Non-frozen (`pip install -e .`) runs are
+  unaffected.
+
+### Tests
+
+- Added regression coverage for all three fixes: a real-EXIF/no-JSON fixture
+  proving loose images land in `YYYY/YYYY_MM/`, an end-to-end orphan-recovery
+  test asserting manually-added files reach `organized_media/` (not merely the
+  database), and unit tests asserting `freeze_support()` runs before argument
+  parsing at both entry points.
+
+---
+
 ## [1.0.0] - 2026-03-07
 
 ### Initial Public Release
