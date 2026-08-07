@@ -2778,6 +2778,14 @@ Recovery runs automatically at pipeline startup and reconciles:
    - Set that row to `status='extracted'` so a subsequent `process` run actually
      validates, hashes, and organizes them (a plain `register_zip()` would leave
      it `pending`, which the batch phase skips)
+   - Only **media** files are recovered (mirrors extraction's `is_media_file`
+     filter); JSON sidecars, XMP and other files are left untouched in
+     `extracted/`
+   - **Deferred while any ZIP is pending (re-)extraction.** A crash mid-extraction
+     leaves unregistered files that belong to the pending archive; they are
+     re-registered (with their JSON) when it re-extracts. Recovering them here
+     would double-register the paths and move them before JSON metadata is
+     applied, so recovery waits until nothing is pending (it runs every startup)
 
 5. **Missing Files**: Mark as error
    - Sample files table for filesystem mismatches

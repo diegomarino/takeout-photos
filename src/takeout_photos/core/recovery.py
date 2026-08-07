@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from takeout_photos.core.config import Config
 from takeout_photos.core.constants import RECOVERED_ORPHANS_ZIP
 from takeout_photos.core.database import PipelineDB
+from takeout_photos.utils.progress import is_media_file
 from takeout_photos.utils.system_files import should_ignore_path
 
 
@@ -320,13 +321,26 @@ class RecoveryManager:
         - Manual files added to extracted/
 
         Recovery action:
-        - Scan extracted/ directory
-        - Check each file against files table
+        - Scan extracted/ directory for unregistered *media* files
         - Register orphans under a reserved synthetic ZIP name
           (constants.RECOVERED_ORPHANS_ZIP)
         - Set that synthetic ZIP's status to 'extracted' so the next `process` run
           validates, hashes, and organizes them (matching the "Manual files
           added to extracted/" recovery scenario documented in docs/api.md)
+
+        Safety guards:
+        - Deferred while any ZIP is pending (re-)extraction. A crash during
+          extraction leaves unregistered files in extracted/; those belong to
+          the pending archive and would be re-created (with their Takeout JSON)
+          when it re-extracts. Scooping them into the synthetic batch now would
+          double-register the paths and, because the synthetic batch sorts and
+          runs first, move the files before JSON metadata is applied — losing
+          the JSON date and breaking the real records. Genuine orphans are
+          recovered on a later run once nothing is pending (recovery is
+          idempotent and runs every startup).
+        - Only media files are registered (mirrors extraction's is_media_file
+          filter). Otherwise JSON sidecars, XMP, notes, etc. would be organized
+          into no_date/ and removed from extracted/, polluting the library.
 
         Dry-run mode: Only counts, does not register files.
         """
@@ -334,6 +348,18 @@ class RecoveryManager:
         assert self.config.extracted_dir is not None
 
         if not self.config.extracted_dir.exists():
+            return
+
+        # Defer while real archives are awaiting (re-)extraction (see docstring).
+        # Intermediate recovery has already reset crashed 'extracting' ZIPs to
+        # 'pending', so get_pending_zips() (pending + error) captures exactly the
+        # archives that run() will extract and register on this same run.
+        pending = self.db.get_pending_zips()
+        if pending:
+            self.log.info(
+                f"Deferring orphaned-extracted recovery: {len(pending)} ZIP(s) pending "
+                f"(re-)extraction may still register these files"
+            )
             return
 
         # Get all extracted files from DB
@@ -348,6 +374,11 @@ class RecoveryManager:
 
             # Filter system files
             if should_ignore_path(file_path):
+                continue
+
+            # Only recover supported media (mirror extraction). Non-media files
+            # (JSON sidecars, XMP, notes, ...) are left untouched in extracted/.
+            if not is_media_file(file_path):
                 continue
 
             # Check if in DB

@@ -179,8 +179,8 @@ def test_detect_orphaned_extracted(tmp_path):
     orphan2 = config.extracted_dir / "orphan2.jpg"
     orphan2.write_bytes(b"test2")
 
-    # Need at least one ZIP for association
-    db.register_zip("unknown")
+    # No pending ZIPs: recovery creates the synthetic ZIP itself. (A pending ZIP
+    # would correctly defer recovery — see test_orphaned_extracted_deferred_...)
 
     # Run recovery
     mgr = RecoveryManager(config, db, log)
@@ -252,6 +252,66 @@ def test_orphaned_extracted_dry_run_registers_nothing(tmp_path):
     assert mgr.stats.orphaned_extracted == 1
     assert db.get_zip_status(RECOVERED_ORPHANS_ZIP) is None
     assert db.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
+
+    db.close()
+
+
+def test_orphaned_extracted_deferred_while_zip_pending(tmp_path):
+    """Recovery defers (registers nothing) while a real ZIP awaits (re-)extraction.
+
+    A crash during extraction leaves unregistered files in extracted/ that belong
+    to the pending archive; re-extraction will register them (with their Takeout
+    JSON). Scooping them into the synthetic batch now would double-register the
+    paths and, because that batch sorts and runs first, move the files before
+    JSON metadata is applied. So while any ZIP is pending, orphan recovery must
+    defer — the files are recovered on a later run once nothing is pending.
+    """
+    config = Config(workdir=tmp_path)
+    db = PipelineDB(config.db_path)
+    log = logging.getLogger(__name__)
+
+    config.extracted_dir.mkdir(parents=True)
+    (config.extracted_dir / "leftover.jpg").write_bytes(b"partial")
+
+    # A real archive is pending (re-)extraction (register_zip defaults to 'pending').
+    db.register_zip("takeout-001.zip")
+
+    mgr = RecoveryManager(config, db, log)
+    mgr._detect_and_recover_orphaned_extracted()
+
+    # Nothing registered, nothing counted, no synthetic ZIP created.
+    assert mgr.stats.orphaned_extracted == 0
+    assert db.get_zip_status(RECOVERED_ORPHANS_ZIP) is None
+    assert db.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
+
+    db.close()
+
+
+def test_orphaned_extracted_registers_media_only(tmp_path):
+    """Only supported media are recovered; JSON sidecars and other files are left alone."""
+    config = Config(workdir=tmp_path)
+    db = PipelineDB(config.db_path)
+    log = logging.getLogger(__name__)
+
+    config.extracted_dir.mkdir(parents=True)
+    (config.extracted_dir / "photo.jpg").write_bytes(b"jpeg")
+    (config.extracted_dir / "photo.jpg.supplemental-metadata.json").write_text("{}")
+    (config.extracted_dir / "sidecar.xmp").write_text("<x/>")
+    (config.extracted_dir / "notes.txt").write_text("hi")
+
+    mgr = RecoveryManager(config, db, log)
+    mgr._detect_and_recover_orphaned_extracted()
+
+    # Only the media file is registered; sidecars/notes remain untouched on disk.
+    assert mgr.stats.orphaned_extracted == 1
+    stem = RECOVERED_ORPHANS_ZIP[: -len(".zip")]
+    found = db.get_files_for_zip(stem)
+    assert len(found) == 1
+    assert found[0]["original_path"].endswith("photo.jpg")
+
+    assert (config.extracted_dir / "photo.jpg.supplemental-metadata.json").exists()
+    assert (config.extracted_dir / "sidecar.xmp").exists()
+    assert (config.extracted_dir / "notes.txt").exists()
 
     db.close()
 
@@ -346,9 +406,7 @@ def test_recovery_filters_system_files_from_orphans(tmp_path):
     config = Config(workdir=workdir)
     db = PipelineDB(config.db_path)
 
-    # Register unknown ZIP for orphans
-    db.register_zip("unknown")
-    db.commit()
+    # No pending ZIPs: recovery creates the synthetic ZIP itself.
 
     recovery = RecoveryManager(config, db, log)
     recovery._detect_and_recover_orphaned_extracted()

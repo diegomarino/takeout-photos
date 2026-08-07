@@ -34,7 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   automatically. The reserved name cannot collide with a real Google Takeout
   archive, and ZIP discovery explicitly skips (with a warning) any physical file
   that uses it, so the no-collision guarantee is enforced rather than merely
-  assumed.
+  assumed. Orphan recovery additionally recovers only media files (leaving JSON
+  sidecars and other files untouched) and defers while any ZIP is pending
+  (re-)extraction, so partially-extracted files from a crashed run are not
+  scooped into the synthetic batch and organized with stale dates ahead of their
+  real Takeout JSON.
 
 - **Homebrew/PyInstaller macOS binary crash on `validate`/`hash`.** In a frozen
   build, `sys.executable` is the bundled CLI itself, so `ProcessPoolExecutor`
