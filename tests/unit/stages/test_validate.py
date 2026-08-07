@@ -144,6 +144,47 @@ class TestStepValidateFormats:
         assert test_file.exists()
         assert not (tmp_path / "photo.HEIC.jpeg").exists()
 
+    def test_validate_worker_propagates_exif_when_extension_correct(self, tmp_path):
+        """Worker must return the embedded EXIF date even when NO rename is needed.
+
+        Regression: the "extension already correct" path used to return
+        (id, None, None, None), discarding a DateTimeOriginal that had already
+        been read. Non-Takeout input (loose images, no JSON) then lost its date
+        and was bucketed into no_date/ during organize.
+        """
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"\xff\xd8\xff")
+
+        file_record = {"id": 7, "original_path": str(test_file)}
+
+        with patch("takeout_photos.stages.validate.get_file_type_and_exif") as mock_detect:
+            # .jpg extension already matches jpeg type → no correction needed
+            mock_detect.return_value = ("jpeg", {"DateTimeOriginal": "2021:07:15 09:30:00"})
+
+            file_id, new_path, exif_datetime, error = _validate_worker(file_record)
+
+            assert file_id == 7
+            assert new_path is None  # no rename
+            assert exif_datetime == "2021:07:15 09:30:00"  # but date still propagated
+            assert error is None
+
+    def test_validate_worker_propagates_exif_when_type_undetectable(self, tmp_path):
+        """Worker propagates EXIF date even when the real type cannot be detected."""
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"\xff\xd8\xff")
+
+        file_record = {"id": 8, "original_path": str(test_file)}
+
+        with patch("takeout_photos.stages.validate.get_file_type_and_exif") as mock_detect:
+            mock_detect.return_value = (None, {"DateTimeOriginal": "2019:01:02 03:04:05"})
+
+            file_id, new_path, exif_datetime, error = _validate_worker(file_record)
+
+            assert file_id == 8
+            assert new_path is None
+            assert exif_datetime == "2019:01:02 03:04:05"
+            assert error is None
+
     def test_validate_worker_handles_undetectable_types(self, tmp_path):
         """Test worker handling of files with undetectable type."""
         # Create file

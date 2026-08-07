@@ -7,7 +7,9 @@ import time
 from dataclasses import dataclass
 
 from takeout_photos.core.config import Config
+from takeout_photos.core.constants import RECOVERED_ORPHANS_ZIP
 from takeout_photos.core.database import PipelineDB
+from takeout_photos.utils.progress import is_media_file
 from takeout_photos.utils.system_files import should_ignore_path
 
 
@@ -319,9 +321,26 @@ class RecoveryManager:
         - Manual files added to extracted/
 
         Recovery action:
-        - Scan extracted/ directory
-        - Check each file against files table
-        - Register orphans with "unknown" ZIP association
+        - Scan extracted/ directory for unregistered *media* files
+        - Register orphans under a reserved synthetic ZIP name
+          (constants.RECOVERED_ORPHANS_ZIP)
+        - Set that synthetic ZIP's status to 'extracted' so the next `process` run
+          validates, hashes, and organizes them (matching the "Manual files
+          added to extracted/" recovery scenario documented in docs/api.md)
+
+        Safety guards:
+        - Deferred while any ZIP is pending (re-)extraction. A crash during
+          extraction leaves unregistered files in extracted/; those belong to
+          the pending archive and would be re-created (with their Takeout JSON)
+          when it re-extracts. Scooping them into the synthetic batch now would
+          double-register the paths and, because the synthetic batch sorts and
+          runs first, move the files before JSON metadata is applied — losing
+          the JSON date and breaking the real records. Genuine orphans are
+          recovered on a later run once nothing is pending (recovery is
+          idempotent and runs every startup).
+        - Only media files are registered (mirrors extraction's is_media_file
+          filter). Otherwise JSON sidecars, XMP, notes, etc. would be organized
+          into no_date/ and removed from extracted/, polluting the library.
 
         Dry-run mode: Only counts, does not register files.
         """
@@ -329,6 +348,18 @@ class RecoveryManager:
         assert self.config.extracted_dir is not None
 
         if not self.config.extracted_dir.exists():
+            return
+
+        # Defer while real archives are awaiting (re-)extraction (see docstring).
+        # Intermediate recovery has already reset crashed 'extracting' ZIPs to
+        # 'pending', so get_pending_zips() (pending + error) captures exactly the
+        # archives that run() will extract and register on this same run.
+        pending = self.db.get_pending_zips()
+        if pending:
+            self.log.info(
+                f"Deferring orphaned-extracted recovery: {len(pending)} ZIP(s) pending "
+                f"(re-)extraction may still register these files"
+            )
             return
 
         # Get all extracted files from DB
@@ -345,19 +376,32 @@ class RecoveryManager:
             if should_ignore_path(file_path):
                 continue
 
+            # Only recover supported media (mirror extraction). Non-media files
+            # (JSON sidecars, XMP, notes, ...) are left untouched in extracted/.
+            if not is_media_file(file_path):
+                continue
+
             # Check if in DB
             if str(file_path) not in db_paths:
                 orphans.append(file_path)
 
-        # Ensure "unknown" ZIP exists for orphans
+        # Synthetic ZIP name for orphaned files. It MUST carry the ".zip"
+        # suffix that every downstream reader expects: get_files_for_zip()
+        # (used by validate/metadata/hash) appends ".zip" to the name it
+        # queries with, so registering files under a bare "unknown" makes those
+        # stages silently find zero files and never process the orphans. The
+        # reserved sentinel name (see constants.RECOVERED_ORPHANS_ZIP) also
+        # cannot collide with a real Takeout archive.
+        recovered_zip = RECOVERED_ORPHANS_ZIP
+
+        # Ensure the synthetic ZIP row exists for orphans
         if orphans and not self.dry_run:
-            # Check if unknown ZIP exists
             zip_exists = self.db.conn.execute(
-                "SELECT COUNT(*) FROM zips WHERE name = 'unknown'"
+                "SELECT COUNT(*) FROM zips WHERE name = ?", (recovered_zip,)
             ).fetchone()[0]
 
             if zip_exists == 0:
-                self.db.register_zip("unknown")
+                self.db.register_zip(recovered_zip)
 
         # Register orphans
         for file_path in orphans:
@@ -367,13 +411,22 @@ class RecoveryManager:
                 file_size = file_path.stat().st_size
 
                 self.db.register_file(
-                    zip_name="unknown",
+                    zip_name=recovered_zip,
                     original_path=str(file_path),
                     file_size=file_size,
                 )
                 self.log.info(f"Registered orphan: {file_path.name}")
 
             self.stats.orphaned_extracted += 1
+
+        # Advance the synthetic ZIP to 'extracted' so a subsequent `process`
+        # run actually picks it up. register_zip() leaves status='pending', but
+        # get_zips_needing_processing() only returns 'extracted'/'processing',
+        # so without this the orphans would be registered and then stall
+        # forever. update_zip_status() commits, which also flushes the
+        # register_file() inserts above.
+        if orphans and not self.dry_run:
+            self.db.update_zip_status(recovered_zip, "extracted")
 
     def _detect_and_recover_missing_files(self):
         """
