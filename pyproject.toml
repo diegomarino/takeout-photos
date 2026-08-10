@@ -45,7 +45,7 @@ dev = [
     "python-semantic-release>=8.0.0",
 ]
 build = [
-    "pyinstaller>=6.0.0",
+    "pyinstaller>=6.19.0",
 ]
 
 [project.scripts]
